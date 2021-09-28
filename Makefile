@@ -6,6 +6,10 @@ json-app: $(OBJS)
 %.o: %.c
 	gcc -c $< -o $@
 
+.PHONY: run
+run: json-app
+	./json-app JSON1.txt
+
 .PHONY: clean
 clean:
 	rm -rf *.o

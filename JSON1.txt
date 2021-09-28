@@ -1,0 +1,347 @@
+{
+
+                "WlanGroupList": [{
+
+                                "createdBy": "Admin",
+
+                                "lastModifiedBy": "Admin",
+
+                                "wlanGroupId": 1,
+
+                                "wlanGroupName": "Limestone",
+
+                                "wlanGroupDescription": "LS WLAN Group",
+
+                                "location": "Ahmedabad",
+
+                                "placement": "Indoor",
+
+                                "status": "Active",
+
+                                "country": "India",
+
+                                "contactPerson": "XYZ",
+
+                                "contactPersonDescription": "JKL",
+
+                                "wlans": [{
+
+                                                                "createdBy": "Admin",
+
+                                                                "lastModifiedBy": null,
+
+                                                                "wlanId": 1,
+
+                                                                "wlanName": "LSOpen",
+
+                                                                "ssidName": "LSOpen",
+
+                                                                "status": "Active",
+
+                                                                "vlan": 1,
+
+                                                                "security": "Open",
+
+                                                                "passphrase": "secret",
+
+                                                                "radios": "2.5 GHz and 5 GHz",
+
+                                                                "createDate": "2021-09-16T09:01:51",
+
+                                                                "lastModificationDate": "2021-09-16T09:01:51",
+
+                                                                "RadiusServerList": [{
+
+                                                                                                "createdBy": "Admin",
+
+                                                                                                "lastModifiedBy": null,
+
+                                                                                                "radiusServerId": 1,
+
+                                                                                                "wlanId": 1,
+
+                                                                                                "servers": [{
+
+                                                                                                                "serverId": 1,
+
+                                                                                                                "ip": "134.209.232.238",
+
+                                                                                                                "secret": "secret",
+
+                                                                                                                "port": "1812",
+
+                                                                                                                "realm": ""
+
+                                                                                                }],
+
+                                                                                                "timeout": 3000,
+
+                                                                                                "attempts": 3,
+
+                                                                                                "type": "Authentication server",
+
+                                                                                                "acctountingMode": null,
+
+                                                                                                "acctountingStatus": null,
+
+                                                                                                "intrimUpdateTime": null,
+
+                                                                                                "createDate": "2021-09-16T09:01:52",
+
+                                                                                                "lastModificationDate": "2021-09-16T09:01:52"
+
+                                                                                },
+
+                                                                                {
+
+                                                                                                "createdBy": "Admin",
+
+                                                                                                "lastModifiedBy": null,
+
+                                                                                                "radiusServerId": 2,
+
+                                                                                                "wlanId": 1,
+
+                                                                                                "servers": [{
+
+                                                                                                                "serverId": 2,
+
+                                                                                                                "ip": "134.209.232.238",
+
+                                                                                                                "secret": "secret",
+
+                                                                                                                "port": "1813",
+
+                                                                                                                "realm": ""
+
+                                                                                                }],
+
+                                                                                                "timeout": 3000,
+
+                                                                                                "attempts": 2,
+
+                                                                                                "type": "Accounting server",
+
+                                                                                                "acctountingMode": "Start-Intrim-Stop",
+
+                                                                                                "acctountingStatus": "Active",
+
+                                                                                                "intrimUpdateTime": 15,
+
+                                                                                                "createDate": "2021-09-16T09:01:52",
+
+                                                                                                "lastModificationDate": "2021-09-16T09:01:52"
+
+                                                                                }
+
+                                                                ],
+
+                                                                "GuestAccessList": [{
+
+                                                                                "createdBy": "Admin",
+
+                                                                                "lastModifiedBy": null,
+
+                                                                                "guestAccessId": 1,
+
+                                                                                "wlanId": 1,
+
+                                                                                "status": "Active",
+
+                                                                                "portalMode": "LS Portal",
+
+                                                                                "portalType": "Standard",
+
+                                                                                "portalUrl": "http://134.209.232.238:5400",
+
+                                                                                "successAction": "Original URL",
+
+                                                                                "successRedirectUrl": "NA",
+
+                                                                                "whitelistUrls": [{
+
+                                                                                                "createdBy": "Admin",
+
+                                                                                                "lastModifiedBy": null,
+
+                                                                                                "whitelistId": 1,
+
+                                                                                                "whitelistUrl": "",
+
+                                                                                                "createDate": "2021-09-16T09:01:52",
+
+                                                                                                "lastModificationDate": "2021-09-16T09:01:52"
+
+                                                                                }]
+
+                                                                }]
+
+                                                },
+
+                                                {
+
+                                                                "createdBy": "Admin",
+
+                                                                "lastModifiedBy": null,
+
+                                                                "wlanId": 2,
+
+                                                                "wlanName": "LSWPA",
+
+                                                                "ssidName": "LSWPA",
+
+                                                                "status": "Active",
+
+                                                                "vlan": 1,
+
+                                                                "security": "WPA2 Preshared Key",
+
+                                                                "passphrase": "secret",
+
+                                                                "radios": "2.5 GHz and 5 GHz",
+
+                                                                "createDate": "2021-09-16T09:08:10",
+
+                                                                "lastModificationDate": "2021-09-16T09:08:10",
+
+                                                                "RadiusServerList": [{
+
+                                                                                                "createdBy": "Admin",
+
+                                                                                                "lastModifiedBy": null,
+
+                                                                                                "radiusServerId": 3,
+
+                                                                                                "wlanId": 2,
+
+                                                                                                "servers": [{
+
+                                                                                                                "serverId": 3,
+
+                                                                                                                "ip": "134.209.232.238",
+
+                                                                                                                "secret": "secret",
+
+                                                                                                                "port": "1812",
+
+                                                                                                                "realm": ""
+
+                                                                                                }],
+
+                                                                                                "timeout": 3000,
+
+                                                                                                "attempts": 3,
+
+                                                                                                "type": "Authentication server",
+
+                                                                                                "acctountingMode": null,
+
+                                                                                                "acctountingStatus": null,
+
+                                                                                                "intrimUpdateTime": null,
+
+                                                                                                "createDate": "2021-09-16T09:08:10",
+
+                                                                                                "lastModificationDate": "2021-09-16T09:08:10"
+
+                                                                                },
+
+                                                                                {
+
+                                                                                                "createdBy": "Admin",
+
+                                                                                                "lastModifiedBy": null,
+
+                                                                                                "radiusServerId": 4,
+
+                                                                                                "wlanId": 2,
+
+                                                                                                "servers": [{
+
+                                                                                                                "serverId": 4,
+
+                                                                                                                "ip": "134.209.232.238",
+
+                                                                                                                "secret": "secret",
+
+                                                                                                                "port": "1812",
+
+                                                                                                                "realm": ""
+
+                                                                                                }],
+
+                                                                                                "timeout": 3000,
+
+                                                                                                "attempts": 3,
+
+                                                                                                "type": "Accounting server",
+
+                                                                                                "acctountingMode": "Start-Intrim-Stop",
+
+                                                                                                "acctountingStatus": "Active",
+
+                                                                                                "intrimUpdateTime": 15,
+
+                                                                                                "createDate": "2021-09-16T09:08:11",
+
+                                                                                                "lastModificationDate": "2021-09-16T09:08:11"
+
+                                                                                }
+
+                                                                ],
+
+                                                                "GuestAccessList": [{
+
+                                                                                "createdBy": "Admin",
+
+                                                                                "lastModifiedBy": null,
+
+                                                                                "guestAccessId": 1,
+
+                                                                                "wlanId": 1,
+
+                                                                                "status": "Active",
+
+                                                                                "portalMode": "LS Portal",
+
+                                                                                "portalType": "Standard",
+
+                                                                                "portalUrl": "http://134.209.232.238:5400",
+
+                                                                                "successAction": "Original URL",
+
+                                                                                "successRedirectUrl": "NA",
+
+                                                                                "whitelistUrls": [{
+
+                                                                                                "createdBy": "Admin",
+
+                                                                                                "lastModifiedBy": null,
+
+                                                                                                "whitelistId": 1,
+
+                                                                                                "whitelistUrl": "",
+
+                                                                                                "createDate": "2021-09-16T09:01:52",
+
+                                                                                                "lastModificationDate": "2021-09-16T09:01:52"
+
+                                                                                }]
+
+                                                                }]
+
+                                                }
+
+                                ],
+
+                                "createDate": "2021-09-16T09:02:46",
+
+                                "lastModificationDate": "2021-09-16T09:08:24"
+
+                }],
+
+                "timestamp": "2021-09-16 09:08:40:7760",
+
+                "status": 200
+
+}
