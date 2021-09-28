@@ -1,7 +1,7 @@
 OBJS=json-app.o
 
 json-app: $(OBJS)
-	gcc -o $@ -ljson-c $^
+	gcc -o $@ $^ -ljson-c
 
 %.o: %.c
 	gcc -c $< -o $@

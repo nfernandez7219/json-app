@@ -9,22 +9,23 @@ static void print_usage(void)
         return;
 }
 
+static json_object *read_cfg(char *filepath)
+{
+        return json_object_from_file(filepath);
+}
+
 int main(int argc, char **argv)
 {
-        FILE *fd;
+        json_object *root;
 
         if (argc != 2)  {
                 print_usage();
         }
 
-        fd = fopen(argv[1], "r");
-        if (!fd) {
-                fprintf(stderr, "error opening %s\n", argv[1]);
-                exit(-1);
-        }
+        root = read_cfg(argv[1]);
         
 
-        fclose(fd);
+        json_object_put(root);
 
         return 0;
 }
