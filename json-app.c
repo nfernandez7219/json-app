@@ -55,6 +55,59 @@ static void parse_guess_access_list(struct json_object *guest_access_list)
         return;
 }
 
+static void parse_one_server(struct json_object *server, char *prefix)
+{
+        struct json_object *server_id;
+        struct json_object *ip;
+        struct json_object *secret;
+        struct json_object *port;
+        struct json_object *realm;
+
+        server_id = json_object_object_get(server, "serverId");
+        if (server_id)
+                printf("%.serverId: %d\n", prefix, get_int_from_object(server));
+
+        ip = json_object_object_get(server, "ip");
+        if (ip)
+                printf("%s.ip: %s\n", prefix, get_string_from_object(ip));
+
+        secret = json_object_object_get(server, "secret");
+        if (secret)
+                printf("%s.secret: %s\n", prefix, get_string_from_object(secret));
+
+        port = json_object_object_get(server, "port");
+        if (port)
+                printf("%s.port: %s\n", prefix, get_string_from_object(port));
+
+        realm = json_object_object_get(server, "realm");
+        if (realm)
+                printf("%s.realm: %s\n", prefix, get_string_from_object(realm));
+
+        return;
+}
+
+static void parse_servers(struct json_object *servers, char *prefix)
+{
+        int n;
+        int i;
+        struct json_object *obj;
+        char new_prefix[256];
+        
+        /* server list must be an array */
+        if (json_object_get_type(servers) != json_type_array) {
+                fprintf(stderr, "server list wrong format!\n");
+                return;
+        }
+
+        n = json_object_array_length(servers);
+        for (i = 0; i < n; i++) {
+                obj = json_object_array_get_idx(servers, i);
+                sprintf(new_prefix, "%s.server[%d]", prefix, i);
+                parse_one_server(obj, new_prefix);
+        }
+        return;
+}
+
 static void parse_one_radius(struct json_object *radius_server, char *prefix)
 {
         struct json_object *created_by;
@@ -89,6 +142,7 @@ static void parse_one_radius(struct json_object *radius_server, char *prefix)
 
         servers = json_object_object_get(radius_server, "servers");
         if (servers) {
+                parse_servers(servers, prefix);
         }
 
         timeout = json_object_object_get(radius_server, "timeout");
