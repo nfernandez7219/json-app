@@ -304,7 +304,7 @@ static void parse_wlan_group_list(json_object *wlan_group_list, char *prefix)
         return;
 }
 
-static void parse_root(json_object *root)
+static void parse_root(json_object *root, char *prefix)
 {
         json_object *wlan_group_list;
         json_object *time_stamp;
@@ -312,19 +312,11 @@ static void parse_root(json_object *root)
 
         wlan_group_list = json_object_object_get(root, "WlanGroupList");
         if (wlan_group_list) {
-                parse_wlan_group_list(wlan_group_list, "root");
+                parse_wlan_group_list(wlan_group_list, prefix);
         }
 
-        time_stamp = json_object_object_get(root, "timestamp");
-        if (time_stamp) {
-                /* process timestamp in root here */
-        }
-
-        status = json_object_object_get(root, "status");
-        if (status) {
-                /* process status in root here */
-        }
-
+        process_string_value(root, prefix, "timestamp");
+        process_int_value(root, prefix, "status");
         return;
 }
 
@@ -337,7 +329,7 @@ int main(int argc, char **argv)
         }
 
         root = read_cfg(argv[1]);
-        parse_root(root);
+        parse_root(root, "wlan_cfg");
         json_object_put(root);
 
         return 0;
