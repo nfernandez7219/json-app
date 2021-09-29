@@ -68,7 +68,7 @@ static void parse_whitelist_urls(struct json_object *whitelist_urls, char *prefi
         int n;
         int i;
         struct json_object *obj;
-        char new_prefix[256];
+        char new_prefix[512];
         
         /* guest access list list must be an array */
         if (json_object_get_type(whitelist_urls) != json_type_array) {
@@ -111,7 +111,7 @@ static void parse_guest_access_list(struct json_object *guest_access_list, char 
         int n;
         int i;
         struct json_object *obj;
-        char new_prefix[256];
+        char new_prefix[512];
         
         /* guest access list list must be an array */
         if (json_object_get_type(guest_access_list) != json_type_array) {
@@ -143,7 +143,7 @@ static void parse_servers(struct json_object *servers, char *prefix)
         int n;
         int i;
         struct json_object *obj;
-        char new_prefix[256];
+        char new_prefix[512];
         
         /* server list must be an array */
         if (json_object_get_type(servers) != json_type_array) {
@@ -189,7 +189,7 @@ static void parse_radius_server_list(struct json_object *radius_server_list,
         int n;
         int i;
         struct json_object *obj;
-        char new_prefix[256];
+        char new_prefix[512];
         
         /* radius server list must be an array */
         if (json_object_get_type(radius_server_list) != json_type_array) {
@@ -238,7 +238,7 @@ static void parse_wlans(struct json_object *wlans, char *prefix)
         int n;
         int i;
         struct json_object *obj;
-        char new_prefix[256];
+        char new_prefix[512];
         
         /* wlan group list must be an array */
         if (json_object_get_type(wlans) != json_type_array) {
@@ -286,7 +286,7 @@ static void parse_wlan_group_list(json_object *wlan_group_list, char *prefix)
         int n;
         int i;
         json_object *obj;
-        char new_prefix[256];
+        char new_prefix[512];
         
         /* wlan group list must be an array */
         if (json_object_get_type(wlan_group_list) != json_type_array) {
