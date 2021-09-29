@@ -122,7 +122,7 @@ static void parse_guest_access_list(struct json_object *guest_access_list, char 
         n = json_object_array_length(guest_access_list);
         for (i = 0; i < n; i++) {
                 obj = json_object_array_get_idx(guest_access_list, i);
-                sprintf(new_prefix, "%s.guest_access[%d]", prefix, i);
+                sprintf(new_prefix, "%s.GuestAccess[%d]", prefix, i);
                 parse_one_guest_access(obj, new_prefix);
         }
         return;
@@ -200,7 +200,7 @@ static void parse_radius_server_list(struct json_object *radius_server_list,
         n = json_object_array_length(radius_server_list);
         for (i = 0; i < n; i++) {
                 obj = json_object_array_get_idx(radius_server_list, i);
-                sprintf(new_prefix, "%s.radius_server[%d]", prefix, i);
+                sprintf(new_prefix, "%s.RadiusServer[%d]", prefix, i);
                 parse_one_radius(obj, new_prefix);
         }
         return;
