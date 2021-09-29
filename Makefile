@@ -1,10 +1,10 @@
 OBJS=json-app.o
 
 json-app: $(OBJS)
-	gcc -o $@ $^ -ljson-c
+	gcc -ggdb -o $@ $^ -ljson-c
 
 %.o: %.c
-	gcc -c $< -o $@
+	gcc -c -ggdb $< -o $@
 
 .PHONY: run
 run: json-app
