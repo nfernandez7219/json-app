@@ -3,22 +3,6 @@
 #include <string.h>
 #include <json-c/json.h>
 
-/* allocates a new string from concatenation of str1 and str2
- */
-char *str_new_append(char *str1, char *str2)
-{
-        char *str;
-        int len1 = strlen(str1);
-        int len2 = strlen(str2);
-        str = calloc(len1+len2+1, sizeof(char));
-        if (str) {
-                strcpy(str, str1);
-                strcat(str, str2);
-        }
-        return str;
-}
-
-
 static void print_usage(void)
 {
         printf("Usage: json-app [FILE]\n");
@@ -68,8 +52,79 @@ static void process_int_value(struct json_object *parent, char *prefix, char *at
         return;
 }
 
-static void parse_guess_access_list(struct json_object *guest_access_list)
+static void parse_one_whitelist_url(struct json_object *whitelist_url, char *prefix)
 {
+        process_string_value(whitelist_url, prefix, "createdBy");
+        process_string_value(whitelist_url, prefix, "lastModifiedBy");
+        process_int_value(whitelist_url, prefix, "whitelistId");
+        process_string_value(whitelist_url, prefix, "whitelistUrl");
+        process_string_value(whitelist_url, prefix, "createDate");
+        process_string_value(whitelist_url, prefix, "lastModificationDate");
+        return;
+}
+
+static void parse_whitelist_urls(struct json_object *whitelist_urls, char *prefix)
+{
+        int n;
+        int i;
+        struct json_object *obj;
+        char new_prefix[256];
+        
+        /* guest access list list must be an array */
+        if (json_object_get_type(whitelist_urls) != json_type_array) {
+                fprintf(stderr, "whitelist Urls list wrong format!\n");
+                return;
+        }
+
+        n = json_object_array_length(whitelist_urls);
+        for (i = 0; i < n; i++) {
+                obj = json_object_array_get_idx(whitelist_urls, i);
+                sprintf(new_prefix, "%s.whitelistUrl[%d]", prefix, i);
+                parse_one_whitelist_url(obj, new_prefix);
+        }
+        return;
+        return;
+}
+
+static void  parse_one_guest_access(struct json_object *guest_access, char *prefix)
+{
+        struct json_object *whitelist_urls;
+
+        process_string_value(guest_access, prefix, "createdBy");
+        process_string_value(guest_access, prefix, "lastModifiedBy");
+        process_int_value(guest_access, prefix, "guestAccessId");
+        process_int_value(guest_access, prefix, "wlanId");
+        process_string_value(guest_access, prefix, "status");
+        process_string_value(guest_access, prefix, "portalMode");
+        process_string_value(guest_access, prefix, "portalType");
+        process_string_value(guest_access, prefix, "portalUrl");
+        process_string_value(guest_access, prefix, "successAction");
+        process_string_value(guest_access, prefix, "successRedirectUrl");
+        whitelist_urls = json_object_object_get(guest_access, "whitelistUrls");
+        if (whitelist_urls)
+                parse_whitelist_urls(whitelist_urls, prefix);
+        return;
+}
+
+static void parse_guest_access_list(struct json_object *guest_access_list, char *prefix)
+{
+        int n;
+        int i;
+        struct json_object *obj;
+        char new_prefix[256];
+        
+        /* guest access list list must be an array */
+        if (json_object_get_type(guest_access_list) != json_type_array) {
+                fprintf(stderr, "guest access list wrong format!\n");
+                return;
+        }
+
+        n = json_object_array_length(guest_access_list);
+        for (i = 0; i < n; i++) {
+                obj = json_object_array_get_idx(guest_access_list, i);
+                sprintf(new_prefix, "%s.guest_access[%d]", prefix, i);
+                parse_one_guest_access(obj, new_prefix);
+        }
         return;
 }
 
@@ -145,7 +200,7 @@ static void parse_radius_server_list(struct json_object *radius_server_list,
         n = json_object_array_length(radius_server_list);
         for (i = 0; i < n; i++) {
                 obj = json_object_array_get_idx(radius_server_list, i);
-                sprintf(new_prefix, "%s.RadiusServer[%d]", prefix, i);
+                sprintf(new_prefix, "%s.radius_server[%d]", prefix, i);
                 parse_one_radius(obj, new_prefix);
         }
         return;
@@ -174,7 +229,7 @@ static void parse_one_wlan(struct json_object *wlan, char *prefix)
         
         guest_access_list = json_object_object_get(wlan, "GuestAccessList");
         if (guest_access_list)
-                parse_guess_access_list(guest_access_list);
+                parse_guest_access_list(guest_access_list, prefix);
         return;
 }
 
