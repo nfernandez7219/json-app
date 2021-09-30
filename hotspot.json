@@ -1,0 +1,28 @@
+{
+        "wifi": {
+                "name": "wifi",
+                "disabled": 0,
+                "HS_LANIF": "br-hotspot",
+                "HS_WANIF": "wwan0",
+                "HS_NETWORK": "192.168.10.0",
+                "HS_NETMASK": "255.255.255.0",
+                "HS_UAMLISTEN": "192.168.10.1",
+                "HS_UAMPORT": 8080,
+                "HS_UAMUIPORT": 0,
+                "HS_DNS1": "8.8.8.8",
+                "HS_DNS2": "8.8.4.4",
+                "HS_NASID": "default",
+                "HS_RADIUS": "163.243.4.191",
+                "HS_RADIUS2": "163.243.4.191",
+                "HS_RADSECRET": "H4F7JY4W8xHu",
+                "HS_UAMALLOW": "162.243.4.198",
+                "HS_MACAUTH": "off",
+                "HS_DEFSESSIONTIMEOUT": 0,
+                "HS_DEFIDLETIMEOUT": 0,
+                "HS_DEFBANDWIDTHMAXDOWN": 0,
+                "HS_DEFBANDWIDTHMAXUP": 0,
+                "HS_TCP_PORTS": 81,
+                "HS_UAMHOMEPAGE": "http://$ip/index.php",
+                "default": 0
+        }
+}

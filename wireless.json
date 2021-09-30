@@ -1,0 +1,57 @@
+{
+        "wifi-device": 
+                [{
+                        "name": "radio0",
+                        "type": "mac80211",
+	                "channel": 11,
+                        "hwmode": "11g",
+                        "path": "platform/10180000.wmac",
+                        "htmode": "HT20",
+                        "disabled": 0
+                },
+                {
+                        "name": "radio1",
+                        "type": "mac80211",
+	                "channel": 11,
+                        "hwmode": "11g",
+                        "path": "platform/10190000.wmac",
+                        "htmode": "HT20",
+                        "disabled": 0
+                }],
+
+        "wifi-iface":
+                [{
+                        "name": "private",
+                        "device": "radio0",
+                        "network": "lan",
+                        "mode": "ap",
+                        "disabled": 0,
+                        "encryption": "psk2",
+                        "hidden": 0,
+	                "key": "9601636365",
+                        "ssid": "OpenWrt"
+                },
+                {
+                        "name": "private2",
+                        "device": "radio1",
+                        "network": "lan",
+                        "mode": "ap",
+                        "disabled": 0,
+                        "encryption": "psk2",
+                        "hidden": 0,
+	                "key": "5656565656",
+                        "ssid": "OpenWrt"
+                },
+                {
+                        "name": "private3",
+                        "device": "radio0",
+                        "network": "lan",
+                        "mode": "ap",
+                        "disabled": 0,
+                        "encryption": "psk2",
+                        "hidden": 0,
+	                "key": "1234567890",
+                        "ssid": "OpenWrt"
+                }]
+}
+
