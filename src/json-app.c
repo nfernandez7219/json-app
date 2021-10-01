@@ -1,7 +1,12 @@
 #include <stdio.h>
-#include <assert.h>
 #include <string.h>
+#include <libgen.h>
 #include <json-c/json.h>
+
+struct json_parse_ctx {
+        json_object *root;
+        char package[]; /* this must always be last */
+};
 
 static void print_usage(void)
 {
@@ -11,327 +16,158 @@ static void print_usage(void)
         return;
 }
 
-static json_object *read_cfg(char *filepath)
+static void get_package_name(char *path, char *package_name, int len)
 {
-        return json_object_from_file(filepath);
-}
-
-const char *get_string_from_object(struct json_object *obj)
-{
-        char *str = NULL;
-        if (json_object_get_type(obj) == json_type_string) {
-                return json_object_get_string(obj);
+        char *iter;
+        int found = 0;
+        char *package = basename(path);
+        for (iter = package; *iter; iter++) {
+                if (*iter == '.') {
+                        found = 1;
+                        break;
+                }
         }
-        return str;
+
+        if (found) *iter = '\0';
+        strncpy(package_name, package, len);
+        if (found) *iter = '.';
 }
 
-int get_int_from_object(struct json_object *obj)
+/* the package we will use is taken from the filename.
+ * e.g. if we are parsing for a wireless uci config, the corresponding filename
+ * will be "wireless.json". if we are parsing for a hotspot uci config, it will
+ * be "hotspot.json".
+ *
+ * we will be using the filename basename mwith the .json extension removed as
+ * the config file in /etc/config/. examples are below:
+ *
+ * /some/path/wireless.json => /etc/config/wireless
+ * /some/path/hotspot.json => /etc/config/hotspot
+ */
+
+static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
 {
-        int ret = -1;
-        if (json_object_get_type(obj) == json_type_int) {
-                return json_object_get_int(obj);
+        char *filename;
+        int size;
+        struct json_parse_ctx *new_ctx;
+        char package_name[256];
+
+        if (argc != 2) {
+                print_usage();
         }
-        return ret;
+        filename = argv[1];
+        get_package_name(filename, package_name, sizeof(package_name));
+        size = (strlen(package_name) + 1) + sizeof(struct json_parse_ctx);
+        new_ctx = malloc(size);
+        if (!new_ctx) {
+                fprintf(stderr, "out of memory error\n");
+                exit(-1);
+        }
+
+        new_ctx->root = json_object_from_file(filename);
+        if (!new_ctx->root) {
+                fprintf(stderr, "cannot process input file %s\n", filename);
+                exit(-1);
+        }
+
+        /* our package name which we will use to make the config in 
+         * /etc/config/<cfg_filename> */
+        strcpy(new_ctx->package, package_name);
+        return new_ctx;
 }
 
-static void process_string_value(struct json_object *parent, char *prefix, char *attribute)
+static void free_json_parse_context(struct json_parse_ctx *ctx)
 {
-        struct json_object *obj;
-        obj = json_object_object_get(parent, attribute);
-        if (obj)
-                printf("%s.%s: %s\n", prefix, attribute, get_string_from_object(obj));
+        free(ctx);
         return;
 }
 
-static void process_int_value(struct json_object *parent, char *prefix, char *attribute)
+static void parse_option_list(struct json_object *obj)
 {
-        struct json_object *obj;
-        obj = json_object_object_get(parent, attribute);
-        if (obj)
-                printf("%s.%s: %d\n", prefix, attribute, get_int_from_object(obj));
+        fprintf(stderr, "array not supported for now.\n");
         return;
 }
 
-static void parse_one_whitelist_url(struct json_object *whitelist_url, char *prefix)
+
+/* sections must have a name */
+static void parse_one_section(char *type_name, struct json_object *obj)
 {
-        process_string_value(whitelist_url, prefix, "createdBy");
-        process_string_value(whitelist_url, prefix, "lastModifiedBy");
-        process_int_value(whitelist_url, prefix, "whitelistId");
-        process_string_value(whitelist_url, prefix, "whitelistUrl");
-        process_string_value(whitelist_url, prefix, "createDate");
-        process_string_value(whitelist_url, prefix, "lastModificationDate");
+        struct json_object *name;
+
+        /* a section can be named or nameless, lets process that here. */
+        name = json_object_object_get(obj, "name");
+        printf("config %s", type_name);
+        if (name) {
+                printf(" %s", json_object_get_string(name));
+        } 
+        printf("\n");
+
+        json_object_object_foreach(obj, key, val) {
+                struct json_object *option;
+
+
+                /* skip name because we processed it already */
+                if (strcmp(key, "name") == 0) {
+                        continue;
+                }
+                
+                /* according to uci standard, we can have a string, boolean, int
+                 * or a list as option. we figure it out here so we now what 
+                 * processing to do.
+                 */
+                switch(json_object_get_type(val))
+                {
+                case json_type_string:
+                        printf("\toption %s '%s'", key, json_object_get_string(val));
+                        break;
+                case json_type_int:
+                        printf("\toption %s %d", key, json_object_get_int(val));
+                        break;
+                case json_type_array:
+                        parse_option_list(val);
+                }
+                printf("\n");
+        }
+        printf("\n");
+
         return;
 }
 
-static void parse_whitelist_urls(struct json_object *whitelist_urls, char *prefix)
+static void parse_section(char *key, struct json_object *section)
 {
         int n;
         int i;
         struct json_object *obj;
-        char new_prefix[512];
-        
-        /* guest access list list must be an array */
-        if (json_object_get_type(whitelist_urls) != json_type_array) {
-                fprintf(stderr, "whitelist Urls list wrong format!\n");
-                return;
-        }
 
-        n = json_object_array_length(whitelist_urls);
-        for (i = 0; i < n; i++) {
-                obj = json_object_array_get_idx(whitelist_urls, i);
-                sprintf(new_prefix, "%s.whitelistUrl[%d]", prefix, i);
-                parse_one_whitelist_url(obj, new_prefix);
-        }
-        return;
-        return;
-}
+        /* we can have an array or an object here */
+        if (json_object_get_type(section) == json_type_array) {
+              n = json_object_array_length(section);  
+              for (i=0; i<n; i++) {
+                        obj = json_object_array_get_idx(section, i);
+                        parse_one_section(key, obj);
+              }
 
-static void  parse_one_guest_access(struct json_object *guest_access, char *prefix)
-{
-        struct json_object *whitelist_urls;
-
-        process_string_value(guest_access, prefix, "createdBy");
-        process_string_value(guest_access, prefix, "lastModifiedBy");
-        process_int_value(guest_access, prefix, "guestAccessId");
-        process_int_value(guest_access, prefix, "wlanId");
-        process_string_value(guest_access, prefix, "status");
-        process_string_value(guest_access, prefix, "portalMode");
-        process_string_value(guest_access, prefix, "portalType");
-        process_string_value(guest_access, prefix, "portalUrl");
-        process_string_value(guest_access, prefix, "successAction");
-        process_string_value(guest_access, prefix, "successRedirectUrl");
-        whitelist_urls = json_object_object_get(guest_access, "whitelistUrls");
-        if (whitelist_urls)
-                parse_whitelist_urls(whitelist_urls, prefix);
-        return;
-}
-
-static void parse_guest_access_list(struct json_object *guest_access_list, char *prefix)
-{
-        int n;
-        int i;
-        struct json_object *obj;
-        char new_prefix[512];
-        
-        /* guest access list list must be an array */
-        if (json_object_get_type(guest_access_list) != json_type_array) {
-                fprintf(stderr, "guest access list wrong format!\n");
-                return;
-        }
-
-        n = json_object_array_length(guest_access_list);
-        for (i = 0; i < n; i++) {
-                obj = json_object_array_get_idx(guest_access_list, i);
-                sprintf(new_prefix, "%s.GuestAccess[%d]", prefix, i);
-                parse_one_guest_access(obj, new_prefix);
-        }
-        return;
-}
-
-static void parse_one_server(struct json_object *server, char *prefix)
-{
-        process_int_value(server, prefix, "serverId");
-        process_string_value(server, prefix, "ip");
-        process_string_value(server, prefix, "secret");
-        process_string_value(server, prefix, "port");
-        process_string_value(server, prefix, "realm");
-        return;
-}
-
-static void parse_servers(struct json_object *servers, char *prefix)
-{
-        int n;
-        int i;
-        struct json_object *obj;
-        char new_prefix[512];
-        
-        /* server list must be an array */
-        if (json_object_get_type(servers) != json_type_array) {
-                fprintf(stderr, "server list wrong format!\n");
-                return;
-        }
-
-        n = json_object_array_length(servers);
-        for (i = 0; i < n; i++) {
-                obj = json_object_array_get_idx(servers, i);
-                sprintf(new_prefix, "%s.server[%d]", prefix, i);
-                parse_one_server(obj, new_prefix);
-        }
-        return;
-}
-
-static void parse_one_radius(struct json_object *radius_server, char *prefix)
-{
-        struct json_object *servers;
-
-        process_string_value(radius_server, prefix, "createdBy");
-        process_string_value(radius_server, prefix, "lastModifiedBy");
-        process_int_value(radius_server, prefix, "radiusServerId");
-        process_int_value(radius_server, prefix, "wlanId");
-        servers = json_object_object_get(radius_server, "servers");
-        if (servers) {
-                parse_servers(servers, prefix);
-        }
-        process_int_value(radius_server, prefix, "timeout");
-        process_int_value(radius_server, prefix, "attempts");
-        process_string_value(radius_server, prefix, "type");
-        process_string_value(radius_server, prefix, "acctountingMode");
-        process_string_value(radius_server, prefix, "acctountingStatus");
-        process_int_value(radius_server, prefix, "intrimUpdateTime");
-        process_string_value(radius_server, prefix, "createDate");
-        process_string_value(radius_server, prefix, "lastModificationDate");
-        return;
-}
-
-static void parse_radius_server_list(struct json_object *radius_server_list,
-                                     char *prefix)
-{
-        int n;
-        int i;
-        struct json_object *obj;
-        char new_prefix[512];
-        
-        /* radius server list must be an array */
-        if (json_object_get_type(radius_server_list) != json_type_array) {
-                fprintf(stderr, "radius server list wrong format!\n");
-                return;
-        }
-
-        n = json_object_array_length(radius_server_list);
-        for (i = 0; i < n; i++) {
-                obj = json_object_array_get_idx(radius_server_list, i);
-                sprintf(new_prefix, "%s.RadiusServer[%d]", prefix, i);
-                parse_one_radius(obj, new_prefix);
-        }
-        return;
-}
-
-static void parse_one_wlan(struct json_object *wlan, char *prefix)
-{
-        struct json_object *radius_server_list;
-        struct json_object *guest_access_list;
-
-        process_string_value(wlan, prefix, "createdBy");
-        process_string_value(wlan, prefix, "lastModifiedBy");
-        process_int_value(wlan ,prefix, "wlandId");
-        process_string_value(wlan, prefix, "wlanName");
-        process_string_value(wlan, prefix, "ssid_name");
-        process_string_value(wlan, prefix, "status");
-        process_int_value(wlan, prefix, "vlan");
-        process_string_value(wlan, prefix, "security");
-        process_string_value(wlan, prefix, "radios");
-        process_string_value(wlan, prefix, "createDate");
-        process_string_value(wlan, prefix, "lastModificationDate");
-        
-        radius_server_list = json_object_object_get(wlan, "RadiusServerList");
-        if (radius_server_list) 
-                parse_radius_server_list(radius_server_list, prefix);
-        
-        guest_access_list = json_object_object_get(wlan, "GuestAccessList");
-        if (guest_access_list)
-                parse_guest_access_list(guest_access_list, prefix);
-        return;
-}
-
-static void parse_wlans(struct json_object *wlans, char *prefix)
-{
-        int n;
-        int i;
-        struct json_object *obj;
-        char new_prefix[512];
-        
-        /* wlan group list must be an array */
-        if (json_object_get_type(wlans) != json_type_array) {
-                fprintf(stderr, "wlan list wrong format!\n");
-                return;
-        }
-
-        n = json_object_array_length(wlans);
-        for (i = 0; i < n; i++) {
-                obj = json_object_array_get_idx(wlans, i);
-                sprintf(new_prefix, "%s.wlan[%d]", prefix, i);
-                parse_one_wlan(obj, new_prefix);
-        }
-        return;
-}
-
-static void parse_one_wlan_group(json_object *wlan_grp, char *prefix)
-{
-        struct json_object *wlans;
-
-        process_string_value(wlan_grp, prefix, "createdBy");
-        process_string_value(wlan_grp, prefix, "lastModifiedBy");
-        process_int_value(wlan_grp, prefix, "wlanGroupId");
-        process_string_value(wlan_grp, prefix, "wlanGroupName");
-        process_string_value(wlan_grp, prefix, "wlanGroupDescriptor");
-        process_string_value(wlan_grp, prefix, "location");
-        process_string_value(wlan_grp, prefix, "placement");
-        process_string_value(wlan_grp, prefix, "status");
-        process_string_value(wlan_grp, prefix, "country");
-        process_string_value(wlan_grp, prefix, "contactPerson");
-        process_string_value(wlan_grp, prefix, "contactpersonDescription");
-        
-        wlans = json_object_object_get(wlan_grp, "wlans");
-        if (wlans)
-                parse_wlans(wlans, prefix);
-
-        process_string_value(wlan_grp, prefix, "createDate");
-        process_string_value(wlan_grp, prefix, "lastModificationDate");
-        return;
-}
-
-
-static void parse_wlan_group_list(json_object *wlan_group_list, char *prefix)
-{
-        int n;
-        int i;
-        json_object *obj;
-        char new_prefix[512];
-        
-        /* wlan group list must be an array */
-        if (json_object_get_type(wlan_group_list) != json_type_array) {
-                fprintf(stderr, "wlan group list wrong format!\n");
-                return;
-        }
-
-        n = json_object_array_length(wlan_group_list);
-        for (i = 0; i < n; i++) {
-                obj = json_object_array_get_idx(wlan_group_list, i);
-                sprintf(new_prefix, "%s.wlan_group[%d]", prefix, i);
-                parse_one_wlan_group(obj, new_prefix);
+        } else {
+                parse_one_section(key, section);
         }
 
         return;
 }
 
-static void parse_root(json_object *root, char *prefix)
+static void parse_root(struct json_parse_ctx *ctx)
 {
-        json_object *wlan_group_list;
-        json_object *time_stamp;
-        json_object *status;
-
-        wlan_group_list = json_object_object_get(root, "WlanGroupList");
-        if (wlan_group_list) {
-                parse_wlan_group_list(wlan_group_list, prefix);
+        json_object_object_foreach(ctx->root, key, val) {
+                parse_section(key, val);
         }
-
-        process_string_value(root, prefix, "timestamp");
-        process_int_value(root, prefix, "status");
         return;
 }
 
 int main(int argc, char **argv)
 {
-        json_object *root;
-
-        if (argc != 2)  {
-                print_usage();
-        }
-
-        root = read_cfg(argv[1]);
-        parse_root(root, "wlan_cfg");
-        json_object_put(root);
-
+        struct json_parse_ctx *parse_ctx;
+        parse_ctx = new_json_parse_context(argc, argv);
+        parse_root(parse_ctx);
+        free_json_parse_context(parse_ctx);
         return 0;
 }
 

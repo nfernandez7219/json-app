@@ -1,5 +1,5 @@
 {
-        "wifi": {
+        "network": {
                 "name": "wifi",
                 "disabled": 0,
                 "HS_LANIF": "br-hotspot",
