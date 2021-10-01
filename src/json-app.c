@@ -6,10 +6,69 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+
+/* notes regarding json-app
+ *
+ * 1) it processes input files in json format only.
+ * 2) uci config file sections can be named or unamed:
+ *
+ *      -> this is a named section:
+ *      config interface 'named_section'
+ *              option ...
+ *              option ...
+ *
+ *      -> this is an unnamed section:
+ *      config interface
+ *              option ...
+ *              option ...              
+ *
+ *   the parser does not deal with unamed sections in the json file for now.
+ *   therefore, a special option "name" must be inserted when defining 
+ *   a section in a json input.
+ *
+ *   an example in hotspot.json is shown below. this only has 1 section.
+ *
+ *   {
+ *           "network": {
+ *                 "name": "wifi",
+ *                 ....
+ *           }
+ *   }
+ *
+ *   this corresponds to the uci /etc/config/hotspot config file as:
+ *
+ *              config network 'wifi'
+ *                      option ...
+ *
+ *
+ *   another example is found in wireless.json where multiple sections are defined:
+ *
+ *   {
+ *              "wifi-device":[
+ *                      {
+ *                              "name": "radio0",
+ *                              ...
+ *                      },
+ *                      {
+ *                              "name": "radio1",
+ *                              ...
+ *                      }
+ *              ],
+ *   }
+ *
+ *   this corresponds to the uci /etc/config/wireless config file as:
+ *
+ *              config wifi-device 'radio0'
+ *                      option ...
+ *
+ *              config wifi-device 'radio1'
+ *                      option ...
+ *
+ */
+
 /* enabling this macro makes libuci save in ~/uci_test/ by default. if disabled
  * libuci will work with /etc/config/ instead. */
 #define UCI_DEBUG       1
-
 
 struct json_parse_ctx {
         json_object *root;
@@ -120,8 +179,8 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
                 exit(-1);
         }
 
-        /* our package name which we will use to make the config in 
-         * /etc/config/<cfg_filename> */
+        /* our package name */
+        /* this can also be accessed via package->e.name */
         strcpy(new_ctx->package_name, package_name);
 
         new_ctx->uci = uci_alloc_context();
@@ -137,7 +196,7 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
         uci_set_confdir(new_ctx->uci, uci_conf_dir);
 #else
         char uci_conf_dir[128];
-        sprintf(uci_conf_dir, "%s", new_ctx->confdir);
+        sprintf(uci_conf_dir, "%s", new_ctx->uci->confdir);
 #endif
 
         char **configs = NULL;
@@ -154,10 +213,14 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
                 } 
         }
         if (!(*p)) {
-                /* libuci does not work with non-existent configs 
+                /* libuci can only udpate existing configs.
                  * there must be an existing config file package before we can 
-                 * use libuci. */
-                fprintf(stderr, "config file non-existent\n");
+                 * use libuci. 
+                 *
+                 * there is no option or command in libuci to create a 
+                 * non-existing config file.
+                 * */
+                fprintf(stderr, "config file non-existent. libuci cannot work with non-existent config files\n");
                 exit(-1);
         }
 
@@ -185,19 +248,21 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                               struct json_object *obj)
 {
         struct json_object *name;
-        struct uci_ptr ptr;
+        struct uci_ptr sptr;
+        struct uci_ptr optr;
+        char string_val[256];
 
-        memset(&ptr, 0, sizeof(ptr));
+        memset(&sptr, 0, sizeof(sptr));
 
         /* a section can be named or nameless, lets process that here. */
         name = json_object_object_get(obj, "name");
         if (name) {
                 printf("config %s '%s'", type_name, json_object_get_string(name));
                 
-                ptr.package = ctx->package->e.name;
-                ptr.value = type_name; /* type */
-                ptr.section = json_object_get_string(name); /* name */
-                uci_set(ctx->uci, &ptr);
+                sptr.package = ctx->package->e.name;
+                sptr.value = type_name; /* type */
+                sptr.section = json_object_get_string(name); /* name */
+                uci_set(ctx->uci, &sptr);
         } else {
                 /* for now, we don't really process a "nameless" section. */
                 fprintf(stderr, "nameless section detected in json file.\n");
@@ -208,11 +273,12 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
         json_object_object_foreach(obj, key, val) {
                 struct json_object *option;
 
-
                 /* skip name because we processed it already */
                 if (strcmp(key, "name") == 0) {
                         continue;
                 }
+
+                memset(&optr, 0, sizeof(optr));
                 
                 /* according to uci standard, we can have a string, boolean, int
                  * or a list as option. we figure it out here so we now what 
@@ -222,13 +288,24 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                 {
                 case json_type_string:
                         printf("\toption %s '%s'", key, json_object_get_string(val));
+                        optr.package = ctx->package->e.name;
+                        optr.section = json_object_get_string(name);
+                        optr.option = key;
+                        sprintf(string_val, "%s", json_object_get_string(val));
+                        optr.value = string_val;
                         break;
                 case json_type_int:
                         printf("\toption %s %d", key, json_object_get_int(val));
+                        optr.package = ctx->package->e.name;
+                        optr.section = json_object_get_string(name);
+                        optr.option = key;
+                        sprintf(string_val, "%d", json_object_get_int(val));
+                        optr.value = string_val;
                         break;
                 case json_type_array:
                         parse_option_list(val);
                 }
+                uci_set(ctx->uci, &optr);
                 printf("\n");
         }
         printf("\n");
