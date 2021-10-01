@@ -2,9 +2,16 @@
 #include <string.h>
 #include <libgen.h>
 #include <json-c/json.h>
+#include <uci.h>
+
+/* enabling this macro makes libuci save in ~/uci_test/ by default. if disabled
+ * libuci will work with /etc/config/ instead. */
+#define DEBUG_UCI       1
+
 
 struct json_parse_ctx {
         json_object *root;
+        struct uci_context *uci;
         char package[]; /* this must always be last */
 };
 
@@ -73,6 +80,16 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
         /* our package name which we will use to make the config in 
          * /etc/config/<cfg_filename> */
         strcpy(new_ctx->package, package_name);
+
+        new_ctx->uci = uci_alloc_context();
+        if (!new_ctx->uci) {
+                fprintf(stderr, "error initializing uci context\n");
+                exit(-1);
+        }
+#ifdef UCI_DEBUG
+        new_ctx->uci->confdir = "~/uci_test/";
+#endif
+
         return new_ctx;
 }
 
@@ -87,7 +104,6 @@ static void parse_option_list(struct json_object *obj)
         fprintf(stderr, "array not supported for now.\n");
         return;
 }
-
 
 /* sections must have a name */
 static void parse_one_section(char *type_name, struct json_object *obj)
