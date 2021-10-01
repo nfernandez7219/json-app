@@ -98,7 +98,7 @@ static void parse_one_section(char *type_name, struct json_object *obj)
         name = json_object_object_get(obj, "name");
         printf("config %s", type_name);
         if (name) {
-                printf(" %s", json_object_get_string(name));
+                printf(" '%s'", json_object_get_string(name));
         } 
         printf("\n");
 
