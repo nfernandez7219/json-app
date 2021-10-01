@@ -64,6 +64,16 @@
  *              config wifi-device 'radio1'
  *                      option ...
  *
+ * 
+ * 3) the filename of the json must correspond to the config file being used
+ *    and should end with .json for uniformity.
+ *    e.g. if you want to update /etc/config/wireless, the corresponding 
+ *         json input file should be wireless.json. if you want to update
+ *         /etc/config/hotspot, the input should be hotspot.json.
+ *
+ *    the parser takes its cue of what UCI config or UCI package file to update
+ *    based on the filename input.
+ *
  */
 
 /* enabling this macro makes libuci save in ~/uci_test/ by default. if disabled
