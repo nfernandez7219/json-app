@@ -6,13 +6,14 @@
 
 /* enabling this macro makes libuci save in ~/uci_test/ by default. if disabled
  * libuci will work with /etc/config/ instead. */
-#define DEBUG_UCI       1
+#define UCI_DEBUG       1
 
 
 struct json_parse_ctx {
         json_object *root;
         struct uci_context *uci;
-        char package[]; /* this must always be last */
+        struct uci_package *package;
+        char package_name[]; /* this must always be last */
 };
 
 static void print_usage(void)
@@ -79,16 +80,43 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
 
         /* our package name which we will use to make the config in 
          * /etc/config/<cfg_filename> */
-        strcpy(new_ctx->package, package_name);
+        strcpy(new_ctx->package_name, package_name);
 
         new_ctx->uci = uci_alloc_context();
         if (!new_ctx->uci) {
                 fprintf(stderr, "error initializing uci context\n");
                 exit(-1);
         }
+
 #ifdef UCI_DEBUG
-        new_ctx->uci->confdir = "~/uci_test/";
+        char uci_conf_dir[128];
+        const char *homedir = getenv("HOME");
+        sprintf(uci_conf_dir, "%s/uci_test/", homedir);
+        uci_set_confdir(new_ctx->uci, uci_conf_dir);
 #endif
+
+        char **configs = NULL;
+        int found = 0;
+
+        uci_list_configs(new_ctx->uci, &configs);
+        for (; *configs; configs++) {
+                if (strcmp(*configs, package_name)==0) {
+                        printf("found %s in confdir\n", package_name);
+                        found = 1;
+                        /* now load the config file into our context for easier manipulation */
+                        if (uci_load(new_ctx->uci, *configs, &new_ctx->package)) {
+                                fprintf(stderr, "error in loading config file %s\n", package_name);
+                                exit(-1);
+                        }
+                        break;
+                } 
+        }
+
+        /* for now we quit if there is no prior config file existing! */
+        if (!found) {
+                fprintf(stderr, "config '%s' none existent\n", package_name);
+                exit(-1);
+        }
 
         return new_ctx;
 }
