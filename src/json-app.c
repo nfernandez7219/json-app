@@ -73,10 +73,12 @@ static void reset_uci_config(struct json_parse_ctx *jctx)
                 }
         }
 
+#if 0 // only for debugging 
         if (uci_commit(jctx->uci, &p, false) != UCI_OK) {
                 fprintf(stderr, "error in commit\n");
                 exit(-1);
         }
+#endif 
 
         return;
 }
@@ -183,12 +185,19 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                               struct json_object *obj)
 {
         struct json_object *name;
+        struct uci_ptr ptr;
+
+        memset(&ptr, 0, sizeof(ptr));
 
         /* a section can be named or nameless, lets process that here. */
         name = json_object_object_get(obj, "name");
         if (name) {
                 printf("config %s '%s'", type_name, json_object_get_string(name));
-
+                
+                ptr.package = ctx->package->e.name;
+                ptr.value = type_name; /* type */
+                ptr.section = json_object_get_string(name); /* name */
+                uci_set(ctx->uci, &ptr);
         } else {
                 /* for now, we don't really process a "nameless" section. */
                 fprintf(stderr, "nameless section detected in json file.\n");
@@ -255,12 +264,23 @@ static void parse_root(struct json_parse_ctx *ctx)
         return;
 }
 
+static void parse_commit(struct json_parse_ctx *ctx)
+{
+        if (uci_commit(ctx->uci, &ctx->package, false) != UCI_OK) {
+                fprintf(stderr, "error in commit\n");
+                exit(-1);
+        }
+        return;
+}
+
+
 int main(int argc, char **argv)
 {
         struct json_parse_ctx *parse_ctx;
 
         parse_ctx = new_json_parse_context(argc, argv);
         parse_root(parse_ctx);
+        parse_commit(parse_ctx);
         free_json_parse_context(parse_ctx);
         return 0;
 }
