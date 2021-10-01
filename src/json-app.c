@@ -3,6 +3,8 @@
 #include <libgen.h>
 #include <json-c/json.h>
 #include <uci.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 /* enabling this macro makes libuci save in ~/uci_test/ by default. if disabled
  * libuci will work with /etc/config/ instead. */
@@ -39,6 +41,44 @@ static void get_package_name(char *path, char *package_name, int len)
         if (found) *iter = '\0';
         strncpy(package_name, package, len);
         if (found) *iter = '.';
+}
+
+/* traverse all the sections in the package and delete them. */
+static void reset_uci_config(struct json_parse_ctx *jctx)
+{
+        struct uci_element *e;
+        struct uci_element *tmp;
+        struct uci_package *p;
+        struct uci_ptr ptr;
+        char tuple[64];
+
+        printf("reset uci_conf\n");
+        if (uci_load(jctx->uci, jctx->package_name, &jctx->package) != UCI_OK) {
+                fprintf(stderr, "error opening uci config file\n");
+                exit(-1);
+        }
+
+        p = jctx->package;
+        uci_foreach_element_safe(&p->sections, tmp, e) {
+                struct uci_section *s = uci_to_section(e);
+                sprintf(tuple, "%s.%s", p->e.name, s->e.name);
+                printf("deleting section: %s\n", tuple);
+                if (uci_lookup_ptr(jctx->uci, &ptr, tuple, true) != UCI_OK) {
+                        fprintf(stderr, "error looking up section\n");
+                        exit(1);
+                }
+                if (uci_delete(jctx->uci, &ptr) != UCI_OK) {
+                        fprintf(stderr, "error in delete\n");
+                        exit(-1);
+                }
+        }
+
+        if (uci_commit(jctx->uci, &p, false) != UCI_OK) {
+                fprintf(stderr, "error in commit\n");
+                exit(-1);
+        }
+
+        return;
 }
 
 /* the package we will use is taken from the filename.
@@ -91,38 +131,43 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
 #ifdef UCI_DEBUG
         char uci_conf_dir[128];
         const char *homedir = getenv("HOME");
-        sprintf(uci_conf_dir, "%s/uci_test/", homedir);
+        sprintf(uci_conf_dir, "%s/uci_test", homedir);
         uci_set_confdir(new_ctx->uci, uci_conf_dir);
+#else
+        char uci_conf_dir[128];
+        sprintf(uci_conf_dir, "%s", new_ctx->confdir);
 #endif
 
         char **configs = NULL;
-        int found = 0;
+        char **p;
 
         uci_list_configs(new_ctx->uci, &configs);
-        for (; *configs; configs++) {
-                if (strcmp(*configs, package_name)==0) {
-                        printf("found %s in confdir\n", package_name);
-                        found = 1;
-                        /* now load the config file into our context for easier manipulation */
-                        if (uci_load(new_ctx->uci, *configs, &new_ctx->package)) {
-                                fprintf(stderr, "error in loading config file %s\n", package_name);
-                                exit(-1);
-                        }
+        for (p = configs; *p; p++) {
+                if (strcmp(*p, package_name)==0) {
+
+                        /* truncate the config file in /etc/config prior to updating. */
+                        reset_uci_config(new_ctx);
+
                         break;
                 } 
         }
-
-        /* for now we quit if there is no prior config file existing! */
-        if (!found) {
-                fprintf(stderr, "config '%s' none existent\n", package_name);
+        if (!(*p)) {
+                /* libuci does not work with non-existent configs 
+                 * there must be an existing config file package before we can 
+                 * use libuci. */
+                fprintf(stderr, "config file non-existent\n");
                 exit(-1);
         }
 
+        /* now we are ready to write a new config file thru libuci ... */
+
+        free(configs);
         return new_ctx;
 }
 
 static void free_json_parse_context(struct json_parse_ctx *ctx)
 {
+        uci_free_context(ctx->uci);
         free(ctx);
         return;
 }
@@ -134,15 +179,20 @@ static void parse_option_list(struct json_object *obj)
 }
 
 /* sections must have a name */
-static void parse_one_section(char *type_name, struct json_object *obj)
+static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
+                              struct json_object *obj)
 {
         struct json_object *name;
 
         /* a section can be named or nameless, lets process that here. */
         name = json_object_object_get(obj, "name");
-        printf("config %s", type_name);
         if (name) {
-                printf(" '%s'", json_object_get_string(name));
+                printf("config %s '%s'", type_name, json_object_get_string(name));
+
+        } else {
+                /* for now, we don't really process a "nameless" section. */
+                fprintf(stderr, "nameless section detected in json file.\n");
+                exit(-1);
         } 
         printf("\n");
 
@@ -177,7 +227,7 @@ static void parse_one_section(char *type_name, struct json_object *obj)
         return;
 }
 
-static void parse_section(char *key, struct json_object *section)
+static void parse_section(struct json_parse_ctx *ctx, char *key, struct json_object *section)
 {
         int n;
         int i;
@@ -188,11 +238,10 @@ static void parse_section(char *key, struct json_object *section)
               n = json_object_array_length(section);  
               for (i=0; i<n; i++) {
                         obj = json_object_array_get_idx(section, i);
-                        parse_one_section(key, obj);
+                        parse_one_section(ctx, key, obj);
               }
-
         } else {
-                parse_one_section(key, section);
+                parse_one_section(ctx, key, section);
         }
 
         return;
@@ -201,7 +250,7 @@ static void parse_section(char *key, struct json_object *section)
 static void parse_root(struct json_parse_ctx *ctx)
 {
         json_object_object_foreach(ctx->root, key, val) {
-                parse_section(key, val);
+                parse_section(ctx, key, val);
         }
         return;
 }
@@ -209,6 +258,7 @@ static void parse_root(struct json_parse_ctx *ctx)
 int main(int argc, char **argv)
 {
         struct json_parse_ctx *parse_ctx;
+
         parse_ctx = new_json_parse_context(argc, argv);
         parse_root(parse_ctx);
         free_json_parse_context(parse_ctx);
