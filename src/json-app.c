@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <stdarg.h>
+#include <getopt.h>
 
 
 /* notes regarding json-app
@@ -85,6 +86,7 @@ struct json_parse_ctx {
         json_object *root;
         struct uci_context *uci;
         struct uci_package *package;
+        int print_uci;
         char package_name[]; /* this must always be last */
 };
 
@@ -101,9 +103,13 @@ static void die(const char *fmt, ...)
 
 static void print_usage(void)
 {
-        printf("Usage: json-app [FILE]\n");
+        printf("Usage: jsonapp [options] [FILE]\n");
         printf("Process one FILE which is a JSON type file.\n");
-        exit(-1);
+        printf("Options:\n\
+         --help or -h           Print this help message.\n\
+         --version or -v        Print version information.\n\
+         --print_uci or -p      Output a UCI config file to stdout.\n\n"
+         "Running jsonapp with only a [FILE] argument will update the config file\n");
         return;
 }
 
@@ -162,6 +168,12 @@ static void reset_uci_config(struct json_parse_ctx *jctx)
         return;
 }
 
+static void print_version(void)
+{
+        printf("Version 1.0\n%s - %s\n", __DATE__, __TIME__);
+        return;
+}
+
 /* the package we will use is taken from the filename.
  * e.g. if we are parsing for a wireless uci config, the corresponding filename
  * will be "wireless.json". if we are parsing for a hotspot uci config, it will
@@ -180,18 +192,49 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
         int size;
         struct json_parse_ctx *new_ctx;
         char package_name[256];
+        int cli_option;
+        int longindex;
+        int print_uci = 0;
+        int print_help = 0;
 
-        if (argc != 2) {
-                print_usage();
+
+        static struct option long_options[] = {
+                {"print_uci", no_argument, NULL, 'p'},
+                {"version", no_argument, NULL, 'v'},
+                {"help", no_argument, NULL, 'h'},
+        };
+
+        while((cli_option = getopt_long(argc, argv, "pvh", long_options, &longindex)) != -1) {
+                switch(cli_option) {
+                case 'p':
+                        print_uci = 1;
+                        break;
+                case 'v':
+                        print_version();
+                        exit(0);
+                        break;
+                case 'h':
+                        print_usage();
+                        exit(0);
+                        break;
+                case '?':
+                        exit(-1);
+                        break;
+                }
         }
-        filename = argv[1];
+
+        if (optind != (argc-1)) {
+                print_usage();
+                exit(0);
+        }
+        filename = argv[optind];
         get_package_name(filename, package_name, sizeof(package_name));
         size = (strlen(package_name) + 1) + sizeof(struct json_parse_ctx);
         new_ctx = malloc(size);
         if (!new_ctx) {
                 die("out of memory. cannot allocate new json parse context");
         }
-
+        new_ctx->print_uci = print_uci;
         new_ctx->root = json_object_from_file(filename);
         if (!new_ctx->root) {
                 die("cannot process input file %s\n", filename);
@@ -215,6 +258,8 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
         char uci_conf_dir[128];
         sprintf(uci_conf_dir, "%s", new_ctx->uci->confdir);
 #endif
+        if (print_uci)
+                return new_ctx;
 
         char **configs = NULL;
         char **p;
@@ -264,26 +309,35 @@ static void parse_option_list(struct json_parse_ctx *ctx,
         struct uci_ptr list_ptr;
         char string_val[256];
 
-        memset(&list_ptr, 0, sizeof(list_ptr));
-        list_ptr.package = ctx->package->e.name;
-        list_ptr.section = json_object_get_string(section);
-        list_ptr.option = key;
+        if (!ctx->print_uci) {
+                memset(&list_ptr, 0, sizeof(list_ptr));
+                list_ptr.package = ctx->package->e.name;
+                list_ptr.section = json_object_get_string(section);
+                list_ptr.option = key;
+        }
 
         n = json_object_array_length(obj);
         for (i=0; i<n; i++) {
                 arr_elem = json_object_array_get_idx(obj, i);
                 switch(json_object_get_type(arr_elem)) {
                 case json_type_string:
-                        //printf("%s\n", json_object_get_string(arr_elem));
-                        list_ptr.value = json_object_get_string(arr_elem);
+                        if (ctx->print_uci) {
+                                printf("\tlist %s %s\n", key, json_object_get_string(arr_elem));
+                        } else {
+                                list_ptr.value = json_object_get_string(arr_elem);
+                        }
                         break;
                 case json_type_int:
-                        //printf("%d\n", json_object_get_int(arr_elem));
-                        sprintf(string_val, "%d", json_object_get_int(arr_elem));
-                        list_ptr.value = string_val;
+                        if (ctx->print_uci) {
+                                printf("\tlist %s %d\n", key, json_object_get_int(arr_elem));
+                        } else {
+                                sprintf(string_val, "%d", json_object_get_int(arr_elem));
+                                list_ptr.value = string_val;
+                        }
                         break;
                 }
-                uci_add_list(ctx->uci, &list_ptr);
+                if (!ctx->print_uci)
+                        uci_add_list(ctx->uci, &list_ptr);
         }
 
         return;
@@ -303,17 +357,20 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
         /* a section can be named or nameless, lets process that here. */
         name = json_object_object_get(obj, "name");
         if (name) {
-                //printf("config %s '%s'", type_name, json_object_get_string(name));
-                
-                sptr.package = ctx->package->e.name;
-                sptr.value = type_name; /* type */
-                sptr.section = json_object_get_string(name); /* name */
-                uci_set(ctx->uci, &sptr);
+                if (ctx->print_uci) {
+                        printf("config %s '%s'", type_name, json_object_get_string(name));
+                } else {
+                        sptr.package = ctx->package->e.name;
+                        sptr.value = type_name; /* type */
+                        sptr.section = json_object_get_string(name); /* name */
+                        uci_set(ctx->uci, &sptr);
+                }
         } else {
                 /* for now, we don't really process a "nameless" section. */
                 die("nameless section detected in json file\n");
         } 
-        //printf("\n");
+        if (ctx->print_uci)
+                printf("\n");
 
         json_object_object_foreach(obj, key, val) {
                 struct json_object *option;
@@ -332,30 +389,36 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                 switch(json_object_get_type(val))
                 {
                 case json_type_string:
-                        //printf("\toption %s '%s'", key, json_object_get_string(val));
-                        optr.package = ctx->package->e.name;
-                        optr.section = json_object_get_string(name);
-                        optr.option = key;
-                        sprintf(string_val, "%s", json_object_get_string(val));
-                        optr.value = string_val;
-                        uci_set(ctx->uci, &optr);
+                        if (ctx->print_uci) {
+                                printf("\toption %s '%s'\n", key, json_object_get_string(val));
+                        } else {
+                                optr.package = ctx->package->e.name;
+                                optr.section = json_object_get_string(name);
+                                optr.option = key;
+                                sprintf(string_val, "%s", json_object_get_string(val));
+                                optr.value = string_val;
+                                uci_set(ctx->uci, &optr);
+                        }
                         break;
                 case json_type_int:
-                        //printf("\toption %s %d", key, json_object_get_int(val));
-                        optr.package = ctx->package->e.name;
-                        optr.section = json_object_get_string(name);
-                        optr.option = key;
-                        sprintf(string_val, "%d", json_object_get_int(val));
-                        optr.value = string_val;
-                        uci_set(ctx->uci, &optr);
+                        if (ctx->print_uci) {
+                                printf("\toption %s %d\n", key, json_object_get_int(val));
+                        } else {
+                                optr.package = ctx->package->e.name;
+                                optr.section = json_object_get_string(name);
+                                optr.option = key;
+                                sprintf(string_val, "%d", json_object_get_int(val));
+                                optr.value = string_val;
+                                uci_set(ctx->uci, &optr);
+                        }
                         break;
                 case json_type_array:
                         parse_option_list(ctx, name, key, val);
                         break;
                 }
-                //printf("\n");
         }
-        //printf("\n");
+        if (ctx->print_uci)
+                printf("\n");
 
         return;
 }
@@ -390,8 +453,10 @@ static void parse_root(struct json_parse_ctx *ctx)
 
 static void parse_commit(struct json_parse_ctx *ctx)
 {
-        if (uci_commit(ctx->uci, &ctx->package, false) != UCI_OK) {
-                die("error in uci_commit");
+        if (!ctx->print_uci) {
+                if (uci_commit(ctx->uci, &ctx->package, false) != UCI_OK) {
+                        die("error in uci_commit");
+                }
         }
         return;
 }
