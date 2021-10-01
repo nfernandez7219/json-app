@@ -5,6 +5,7 @@
 #include <uci.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <stdarg.h>
 
 
 /* notes regarding json-app
@@ -87,6 +88,17 @@ struct json_parse_ctx {
         char package_name[]; /* this must always be last */
 };
 
+static void die(const char *fmt, ...)
+{
+        va_list args;
+        va_start(args, fmt);
+        vfprintf(stderr, fmt, args);
+        fprintf(stderr, "\n");
+        va_end(args);
+        exit(-1);
+        return;
+}
+
 static void print_usage(void)
 {
         printf("Usage: json-app [FILE]\n");
@@ -121,7 +133,7 @@ static void reset_uci_config(struct json_parse_ctx *jctx)
         struct uci_ptr ptr;
         char tuple[64];
 
-        printf("reset uci_conf\n");
+        //printf("reset uci_conf\n");
         if (uci_load(jctx->uci, jctx->package_name, &jctx->package) != UCI_OK) {
                 fprintf(stderr, "error opening uci config file\n");
                 exit(-1);
@@ -131,14 +143,12 @@ static void reset_uci_config(struct json_parse_ctx *jctx)
         uci_foreach_element_safe(&p->sections, tmp, e) {
                 struct uci_section *s = uci_to_section(e);
                 sprintf(tuple, "%s.%s", p->e.name, s->e.name);
-                printf("deleting section: %s\n", tuple);
+                //printf("deleting section: %s\n", tuple);
                 if (uci_lookup_ptr(jctx->uci, &ptr, tuple, true) != UCI_OK) {
-                        fprintf(stderr, "error looking up section\n");
-                        exit(1);
+                        die("error looking section: %s", s->e.name);
                 }
                 if (uci_delete(jctx->uci, &ptr) != UCI_OK) {
-                        fprintf(stderr, "error in delete\n");
-                        exit(-1);
+                        die("error deleting section: %s", s->e.name);
                 }
         }
 
@@ -179,14 +189,12 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
         size = (strlen(package_name) + 1) + sizeof(struct json_parse_ctx);
         new_ctx = malloc(size);
         if (!new_ctx) {
-                fprintf(stderr, "out of memory error\n");
-                exit(-1);
+                die("out of memory. cannot allocate new json parse context");
         }
 
         new_ctx->root = json_object_from_file(filename);
         if (!new_ctx->root) {
-                fprintf(stderr, "cannot process input file %s\n", filename);
-                exit(-1);
+                die("cannot process input file %s\n", filename);
         }
 
         /* our package name */
@@ -195,8 +203,7 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
 
         new_ctx->uci = uci_alloc_context();
         if (!new_ctx->uci) {
-                fprintf(stderr, "error initializing uci context\n");
-                exit(-1);
+                die("error initializing libuci context\n");
         }
 
 #ifdef UCI_DEBUG
@@ -230,8 +237,7 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
                  * there is no option or command in libuci to create a 
                  * non-existing config file.
                  * */
-                fprintf(stderr, "config file non-existent. libuci cannot work with non-existent config files\n");
-                exit(-1);
+                die("config file %s does not exist. libuci only works with config files that exist.");
         }
 
         /* now we are ready to write a new config file thru libuci ... */
@@ -247,13 +253,43 @@ static void free_json_parse_context(struct json_parse_ctx *ctx)
         return;
 }
 
-static void parse_option_list(struct json_object *obj)
+static void parse_option_list(struct json_parse_ctx *ctx, 
+                              struct json_object *section,
+                              char *key,
+                              struct json_object *obj)
 {
-        fprintf(stderr, "array not supported for now.\n");
+        int i;
+        int n;
+        struct json_object *arr_elem;
+        struct uci_ptr list_ptr;
+        char string_val[256];
+
+        memset(&list_ptr, 0, sizeof(list_ptr));
+        list_ptr.package = ctx->package->e.name;
+        list_ptr.section = json_object_get_string(section);
+        list_ptr.option = key;
+
+        n = json_object_array_length(obj);
+        for (i=0; i<n; i++) {
+                arr_elem = json_object_array_get_idx(obj, i);
+                switch(json_object_get_type(arr_elem)) {
+                case json_type_string:
+                        //printf("%s\n", json_object_get_string(arr_elem));
+                        list_ptr.value = json_object_get_string(arr_elem);
+                        break;
+                case json_type_int:
+                        //printf("%d\n", json_object_get_int(arr_elem));
+                        sprintf(string_val, "%d", json_object_get_int(arr_elem));
+                        list_ptr.value = string_val;
+                        break;
+                }
+                uci_add_list(ctx->uci, &list_ptr);
+        }
+
         return;
 }
 
-/* sections must have a name */
+/* sections must have a name option */
 static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                               struct json_object *obj)
 {
@@ -267,7 +303,7 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
         /* a section can be named or nameless, lets process that here. */
         name = json_object_object_get(obj, "name");
         if (name) {
-                printf("config %s '%s'", type_name, json_object_get_string(name));
+                //printf("config %s '%s'", type_name, json_object_get_string(name));
                 
                 sptr.package = ctx->package->e.name;
                 sptr.value = type_name; /* type */
@@ -275,10 +311,9 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                 uci_set(ctx->uci, &sptr);
         } else {
                 /* for now, we don't really process a "nameless" section. */
-                fprintf(stderr, "nameless section detected in json file.\n");
-                exit(-1);
+                die("nameless section detected in json file\n");
         } 
-        printf("\n");
+        //printf("\n");
 
         json_object_object_foreach(obj, key, val) {
                 struct json_object *option;
@@ -297,28 +332,30 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                 switch(json_object_get_type(val))
                 {
                 case json_type_string:
-                        printf("\toption %s '%s'", key, json_object_get_string(val));
+                        //printf("\toption %s '%s'", key, json_object_get_string(val));
                         optr.package = ctx->package->e.name;
                         optr.section = json_object_get_string(name);
                         optr.option = key;
                         sprintf(string_val, "%s", json_object_get_string(val));
                         optr.value = string_val;
+                        uci_set(ctx->uci, &optr);
                         break;
                 case json_type_int:
-                        printf("\toption %s %d", key, json_object_get_int(val));
+                        //printf("\toption %s %d", key, json_object_get_int(val));
                         optr.package = ctx->package->e.name;
                         optr.section = json_object_get_string(name);
                         optr.option = key;
                         sprintf(string_val, "%d", json_object_get_int(val));
                         optr.value = string_val;
+                        uci_set(ctx->uci, &optr);
                         break;
                 case json_type_array:
-                        parse_option_list(val);
+                        parse_option_list(ctx, name, key, val);
+                        break;
                 }
-                uci_set(ctx->uci, &optr);
-                printf("\n");
+                //printf("\n");
         }
-        printf("\n");
+        //printf("\n");
 
         return;
 }
@@ -354,8 +391,7 @@ static void parse_root(struct json_parse_ctx *ctx)
 static void parse_commit(struct json_parse_ctx *ctx)
 {
         if (uci_commit(ctx->uci, &ctx->package, false) != UCI_OK) {
-                fprintf(stderr, "error in commit\n");
-                exit(-1);
+                die("error in uci_commit");
         }
         return;
 }
@@ -364,7 +400,6 @@ static void parse_commit(struct json_parse_ctx *ctx)
 int main(int argc, char **argv)
 {
         struct json_parse_ctx *parse_ctx;
-
         parse_ctx = new_json_parse_context(argc, argv);
         parse_root(parse_ctx);
         parse_commit(parse_ctx);

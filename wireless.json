@@ -7,7 +7,8 @@
                         "hwmode": "11g",
                         "path": "platform/10180000.wmac",
                         "htmode": "HT20",
-                        "disabled": 0
+                        "disabled": 0,
+                        "basic_rate": ["6000", "9000", "12000", "18000", "24000", "36000", "48000", "54000"]
                 },
                 {
                         "name": "radio1",
