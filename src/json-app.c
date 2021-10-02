@@ -7,7 +7,8 @@
 #include <sys/types.h>
 #include <stdarg.h>
 #include <getopt.h>
-
+#include <fcntl.h>
+#include <errno.h>
 
 /* notes regarding json-app
  *
@@ -79,10 +80,6 @@
  *    based on the filename input.
  *
  */
-
-/* enabling this macro makes libuci save in ~/uci_test/ by default. if disabled
- * libuci will work with /etc/config/ instead. */
-#define UCI_DEBUG       1
 
 struct json_parse_ctx {
         json_object *root;
@@ -251,45 +248,53 @@ static struct json_parse_ctx *new_json_parse_context(int argc, char **argv)
                 die("error initializing libuci context\n");
         }
 
-#ifdef UCI_DEBUG
-        char uci_conf_dir[128];
-        const char *homedir = getenv("HOME");
-        sprintf(uci_conf_dir, "%s/uci_test", homedir);
-        uci_set_confdir(new_ctx->uci, uci_conf_dir);
-#else
-        char uci_conf_dir[128];
-        sprintf(uci_conf_dir, "%s", new_ctx->uci->confdir);
-#endif
         if (print_uci)
                 return new_ctx;
 
         char **configs = NULL;
-        char **p;
+        char **p = NULL;
+        int found = 0;
 
-        uci_list_configs(new_ctx->uci, &configs);
-        for (p = configs; *p; p++) {
-                if (strcmp(*p, package_name)==0) {
+        while(!found) {
+                uci_list_configs(new_ctx->uci, &configs);
+                if (configs) {
+                        for (p = configs; *p; p++) {
+                                if (strcmp(*p, package_name)==0) {
+                                        /* truncate the config file in /etc/config prior to updating. */
+                                        reset_uci_config(new_ctx);
+                                        found = 1;
+                                        break;
+                                } 
+                        }
+                }
+                free(configs);
 
-                        /* truncate the config file in /etc/config prior to updating. */
-                        reset_uci_config(new_ctx);
+                if (!found) {
+                        char new_config[256];
+                        int fd;
+                        const mode_t config_perm = S_IRUSR | S_IWUSR;
 
-                        break;
-                } 
-        }
-        if (!(*p)) {
-                /* libuci can only udpate existing configs.
-                 * there must be an existing config file package before we can 
-                 * use libuci. 
-                 *
-                 * there is no option or command in libuci to create a 
-                 * non-existing config file.
-                 * */
-                die("config file %s does not exist. libuci only works with config files that exist.");
+                        /* libuci can only work with existing configs in /etc/config/.
+                         * there must be an existing config file package before we can 
+                         * use libuci. 
+                         *
+                         * what we try to do here is to automate for the user the 
+                         * initial "empty" config file creation which we will
+                         * fill up thru libuci later.
+                         */
+                        fprintf(stderr, "warning: config file %s does not exist. creating it for libuci...\n", package_name);
+                        snprintf(new_config, sizeof(new_config),
+                                 "%s/%s", new_ctx->uci->confdir, package_name);
+                        fd = openat(AT_FDCWD, new_config, O_WRONLY|O_CREAT|O_NONBLOCK, config_perm);
+                        if (fd == -1) {
+                                perror("error");
+                                die("make sure jsonapp has correct permission to access config directory.\n");
+                        }
+                        close(fd);
+                }
         }
 
         /* now we are ready to write a new config file thru libuci ... */
-
-        free(configs);
         return new_ctx;
 }
 

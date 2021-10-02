@@ -23,7 +23,7 @@
         
         "rule": {
                 "name": "ipv4rule",
-                "mark": 0xFF,
+                "mark": "0xFF",
                 "in": "lan",
                 "dest": "172.16.0.0/16",
                 "lookup": "100"

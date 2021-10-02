@@ -1,5 +1,6 @@
 {
         "dnsmasq": {
+                "name": "limesone",
                 "domainneeded": 1,
                 "boguspriv": 1,
                 "filterwin2k": 0,
@@ -12,7 +13,7 @@
                 "nonegcache": 0,
                 "authoritative": 1,
                 "readethers": 1,
-                "leasefile": ""/tmp/dhcp.leases",
-                "resolvfile": ""/tmp/resolv.conf.auto"
+                "leasefile": "/tmp/dhcp.leases",
+                "resolvfile": "/tmp/resolv.conf.auto"
         }
 }
