@@ -22,8 +22,6 @@
 
         "wifi-iface":
                 [{
-                        "name": "private",
-                        "device": "radio0",
                         "network": "lan",
                         "mode": "ap",
                         "disabled": 0,
@@ -44,8 +42,6 @@
                         "ssid": "OpenWrt"
                 },
                 {
-                        "name": "private3",
-                        "device": "radio0",
                         "network": "lan",
                         "mode": "ap",
                         "disabled": 0,

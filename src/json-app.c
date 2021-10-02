@@ -24,10 +24,6 @@
  *              option ...
  *              option ...              
  *
- *   the parser does not deal with unamed sections in the json file for now.
- *   therefore, a special option "name" must be inserted when defining 
- *   a section in a json input.
- *
  *   an example in hotspot.json is shown below. this only has 1 section.
  *
  *   {
@@ -43,16 +39,19 @@
  *                      option ...
  *
  *
- *   another example is found in wireless.json where multiple sections are defined:
+ *   another example is found in wireless.json where some wifi-device type 
+ *   sections are nameless (no "name" property inside section definition ):
  *
  *   {
  *              "wifi-device":[
  *                      {
- *                              "name": "radio0",
  *                              ...
  *                      },
  *                      {
- *                              "name": "radio1",
+ *                              "name": "private2",
+ *                              ...
+ *                      },
+ *                      {
  *                              ...
  *                      }
  *              ],
@@ -60,10 +59,13 @@
  *
  *   this corresponds to the uci /etc/config/wireless config file as:
  *
- *              config wifi-device 'radio0'
+ *              config wifi-device
  *                      option ...
  *
- *              config wifi-device 'radio1'
+ *              config wifi-device 'private2'
+ *                      option ...
+ *
+ *              config wifi-device 
  *                      option ...
  *
  * 
@@ -351,6 +353,7 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
         struct uci_ptr sptr;
         struct uci_ptr optr;
         char string_val[256];
+        struct uci_section *s = NULL;
 
         memset(&sptr, 0, sizeof(sptr));
 
@@ -366,8 +369,12 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                         uci_set(ctx->uci, &sptr);
                 }
         } else {
-                /* for now, we don't really process a "nameless" section. */
-                die("nameless section detected in json file\n");
+                if (ctx->print_uci) {
+                        printf("config %s", type_name);
+                } else {
+                        uci_add_section(ctx->uci, ctx->package, type_name, &s);
+                        uci_save(ctx->uci, ctx->package);
+                }
         } 
         if (ctx->print_uci)
                 printf("\n");
@@ -393,7 +400,7 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                                 printf("\toption %s '%s'\n", key, json_object_get_string(val));
                         } else {
                                 optr.package = ctx->package->e.name;
-                                optr.section = json_object_get_string(name);
+                                optr.section = name ? json_object_get_string(name) : s->e.name;
                                 optr.option = key;
                                 sprintf(string_val, "%s", json_object_get_string(val));
                                 optr.value = string_val;
@@ -405,7 +412,7 @@ static void parse_one_section(struct json_parse_ctx *ctx, char *type_name,
                                 printf("\toption %s %d\n", key, json_object_get_int(val));
                         } else {
                                 optr.package = ctx->package->e.name;
-                                optr.section = json_object_get_string(name);
+                                optr.section = name ? json_object_get_string(name) : s->e.name;
                                 optr.option = key;
                                 sprintf(string_val, "%d", json_object_get_int(val));
                                 optr.value = string_val;
