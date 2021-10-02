@@ -1,0 +1,53 @@
+{
+        "interface": [
+                {
+                        "name": "lan",
+                        "type": "bridge",
+                        "ifname": "eth0.1",
+                        "proto": "static",
+                        "netmask": "255.255.255.0",
+                        "ip6assign": "60",
+                        "ipaddr": "192.168.1.1"
+                },
+                {
+                        "name": "wan",
+                        "ifname": "eth0.2",
+                        "proto": "dhcp"
+                },
+                {
+                        "name": "wan6",
+                        "ifname": "eth0.2",
+                        "proto": "dhcpv6"
+                }
+        ],
+        
+        "rule": {
+                "name": "ipv4rule",
+                "mark": 0xFF,
+                "in": "lan",
+                "dest": "172.16.0.0/16",
+                "lookup": "100"
+        },
+
+        "rule6" : {
+                "name": "ipv6rule",
+                "in": "vpn",
+                "dest": "fdca:1234::/64",
+                "action": "prohibit"
+        },
+
+        "route": {
+                "name": "ipv4net172",
+                "interface": "lan",
+                "target": "172.16.1.0",
+                "netmask": "255.255.255.0",
+                "gateway": "10.1.1.1"
+        },
+
+        "route6": {
+                "name": "default",
+                "interface": "lan",
+                "target": "2008:a:a:c::/64",
+                "gateway": "2008:a:a:b::2"
+        }
+}
