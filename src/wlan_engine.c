@@ -1,10 +1,39 @@
 #include <stdio.h>
+#include <string.h>
 #include "json-app.h"
+
+struct uci_package *wireless_package;
 
 
 /* just remove all wifi-iface sections */
 static void reset_wireless_uci(struct jsonapp_parse_ctx *jctx)
 {
+        struct uci_element *e;
+        struct uci_element *tmp;
+        struct uci_ptr ptr;
+        char tuple[64];
+
+        if (uci_load(jctx->uci_ctx, "wireless", &wireless_package) != UCI_OK) {
+                jsonapp_die("error loading /etc/config/wireless");
+        }
+
+        uci_foreach_element_safe(&wireless_package->sections, tmp, e) {
+                struct uci_section *s = uci_to_section(e);
+                sprintf(tuple, "%s.%s", wireless_package->e.name, s->e.name);
+                if (uci_lookup_ptr(jctx->uci_ctx, &ptr, tuple, true) != UCI_OK) {
+                        jsonapp_die("error looking section: %s", s->e.name);
+                }
+
+                if (strcmp(ptr.s->type, "wifi-iface") != 0) {
+                        continue;
+                }
+               
+                fprintf(stderr, "deleting section: %s.%s\n", wireless_package->e.name, s->e.name);
+                if (uci_delete(jctx->uci_ctx, &ptr) != UCI_OK) {
+                        jsonapp_die("error deleting section: %s", s->e.name);
+                }
+        }
+
         return;
 }
 
