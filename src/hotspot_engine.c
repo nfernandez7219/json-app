@@ -36,27 +36,6 @@ static struct jsonapp_parse_ctx *hotspot_init_context(struct jsonapp_parse_ctx *
         } while(!has_config);
         return jctx;
 }
-#if 0
-static void hotspot_new_wifi(struct jsonapp_parse_ctx *ctx, struct uci_section **section)
-{
-        struct json_object *obj;
-        struct uci_ptr sptr;
-        struct uci_ptr ptr;
-        char tuple[128];
-        
-        memset(&sptr, 0, sizeof(sptr));
-        obj = jsonapp_object_get_object_by_name(wlan_obj, "wlanName", json_type_string);
-        sptr.package = wireless_package->e.name;
-        sptr.value = "wifi-iface";
-        sptr.section = json_object_get_string(obj);
-        uci_set(jctx->uci_ctx, &sptr);
-        uci_save(jctx->uci_ctx, wireless_package);
-        sprintf(tuple, "%s.%s", sptr.package, sptr.section);
-        uci_lookup_ptr(jctx->uci_ctx, &ptr, tuple, true);
-        *section = ptr.s;
-        return;
-}
-#endif
 
 static void hotspot_process_wlangrp_obj(struct jsonapp_parse_ctx *jctx, 
                                          struct json_object *wg_obj,
@@ -113,7 +92,6 @@ static void hotspot_process_wlangrp_obj(struct jsonapp_parse_ctx *jctx,
                                hotspot_package, s, "HS_UAMHOMEPAGE", NULL);  
 
         uci_save(jctx->uci_ctx, hotspot_package);
-        uci_commit(jctx->uci_ctx, &hotspot_package, true);
         return;
 }
 
@@ -122,19 +100,25 @@ static int hotspot_process_json(struct jsonapp_parse_ctx *jctx)
         struct json_object *wlan_grp_obj;
         wlan_grp_obj = jsonapp_object_get_object_by_name(jctx->root, "WlanGroupList", json_type_array);
         jsonapp_process_array(jctx, wlan_grp_obj, NULL, hotspot_process_wlangrp_obj);
-//        uci_commit(jctx->uci_ctx, &wireless_package, true);
+        uci_commit(jctx->uci_ctx, &hotspot_package, true);
         return 0;
+}
+
+static void hotspot_exit_context(struct jsonapp_parse_ctx *jctx)
+{
+        /* we did not do any specific allocation in hotspot_init_context()
+         * so no need to do cleanup here. just return immediately. */
+        return;
 }
 
 static struct jsonapp_parse_backend hotspot_parse_backend = {
         .init = hotspot_init_context,
         .process_json = hotspot_process_json,
-        .exit = NULL,
+        .exit = hotspot_exit_context,
 };
 
 static void __jsonapp_init__ hotspot_engine_init(void)
 {
-        printf("hotspot_engine\n");
         jsonapp_register_backend(&hotspot_parse_backend);
 }
 
