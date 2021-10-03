@@ -28,7 +28,7 @@ static void reset_wireless_uci(struct jsonapp_parse_ctx *jctx)
                         continue;
                 }
                
-                fprintf(stderr, "deleting section: %s.%s\n", wireless_package->e.name, s->e.name);
+                //fprintf(stderr, "deleting section: %s.%s\n", wireless_package->e.name, s->e.name);
                 if (uci_delete(jctx->uci_ctx, &ptr) != UCI_OK) {
                         jsonapp_die("error deleting section: %s", s->e.name);
                 }
