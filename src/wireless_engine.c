@@ -79,7 +79,7 @@ static void wireless_new_iface(struct jsonapp_parse_ctx *jctx,
         sptr.package = wireless_package->e.name;
         sptr.value = "wifi-iface";
 
-        sprintf(radio_name, "%s%s", json_object_get_string(obj), five_ghz ? "5GHz": "2_4GHz");
+        sprintf(radio_name, "%s%s", json_object_get_string(obj), five_ghz ? "5GHz": "2_5GHz");
         sptr.section = radio_name;
         uci_set(jctx->uci_ctx, &sptr);
         uci_save(jctx->uci_ctx, wireless_package);
@@ -104,7 +104,7 @@ static void wireless_set_ssid(struct jsonapp_parse_ctx *jctx,
         optr.option = "ssid";
         member_obj = jsonapp_object_get_object_by_name(wlan_obj, "ssidName", json_type_string);
         sprintf(ssid, "%s%s", json_object_get_string(member_obj),
-                five_ghz ? "5GHz" : "2_4GHz");
+                five_ghz ? "5GHz" : "2_5GHz");
         optr.value = ssid;
         uci_set(jctx->uci_ctx, &optr);
 }
