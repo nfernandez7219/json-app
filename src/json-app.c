@@ -37,7 +37,17 @@ void jsonapp_register_backend(struct jsonapp_parse_backend *backend)
 
 static void free_jsonapp_context(struct jsonapp_parse_ctx *jctx)
 {
+        if (!jctx && jctx->backend->exit) {
+                jctx->backend->exit(jctx);
+        }
 
+        uci_free_context(jctx->uci_ctx);
+
+        /* we did not get any additional reference count for json root so don't 
+         * do json_object_put(jctx->root) */
+
+        free(jctx);
+        jctx = NULL;
         return;
 }
 

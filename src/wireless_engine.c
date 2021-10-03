@@ -56,6 +56,13 @@ static struct jsonapp_parse_ctx *wireless_init_context(struct jsonapp_parse_ctx 
         return jctx;
 }
 
+static void wireless_exit_context(struct jsonapp_parse_ctx *jctx)
+{
+        /* we did not do any specific allocation in wireless_init_context()
+         * so no need to do cleanup here. just return immediately. */
+        return;
+}
+
 static void wireless_new_iface(struct jsonapp_parse_ctx *jctx, 
                                struct json_object *wlan_obj,
                                struct uci_section **section)
@@ -142,7 +149,6 @@ static int wireless_process_json(struct jsonapp_parse_ctx *jctx)
         struct json_object *wlan_grp_obj;
         wlan_grp_obj = jsonapp_object_get_object_by_name(jctx->root, "WlanGroupList", json_type_array);
         jsonapp_process_array(jctx, wlan_grp_obj, NULL, wireless_process_wlangrp_obj);
-
         uci_commit(jctx->uci_ctx, &wireless_package, true);
         return 0;
 }
@@ -150,7 +156,7 @@ static int wireless_process_json(struct jsonapp_parse_ctx *jctx)
 static struct jsonapp_parse_backend wlan_parse_backend = {
         .init = wireless_init_context,
         .process_json = wireless_process_json,
-        .free_jsonapp_context = NULL,
+        .exit = wireless_exit_context,
 };
 
 static void __jsonapp_init__ wlan_engine_init(void)

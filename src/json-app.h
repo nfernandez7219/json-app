@@ -14,20 +14,13 @@ struct jsonapp_parse_backend {
         struct jsonapp_parse_backend *next;
         struct jsonapp_parse_ctx *(*init)(struct jsonapp_parse_ctx *jctx);
         int (*process_json)(struct jsonapp_parse_ctx *jctx);
-        void (*free_jsonapp_context)(struct jsonapp_parse_ctx *jctx);
+        void (*exit)(struct jsonapp_parse_ctx *jctx);
 };
 
 struct jsonapp_parse_ctx {
         struct jsonapp_parse_backend *backend;
         struct json_object *root;
         struct uci_context *uci_ctx;
-#if 0
-        json_object *root;
-        struct uci_context *uci;
-        struct uci_package *package;
-        int print_uci;
-        char package_name[]; /* this must always be last */
-#endif
 };
 
 void jsonapp_die(const char *fmt, ...);
