@@ -4,14 +4,13 @@
 
 struct uci_package *wireless_package;
 
-
 /* just remove all wifi-iface sections */
 static void reset_wireless_uci(struct jsonapp_parse_ctx *jctx)
 {
         struct uci_element *e;
         struct uci_element *tmp;
         struct uci_ptr ptr;
-        char tuple[64];
+        char tuple[128];
 
         if (uci_load(jctx->uci_ctx, "wireless", &wireless_package) != UCI_OK) {
                 jsonapp_die("error loading /etc/config/wireless");
@@ -37,7 +36,7 @@ static void reset_wireless_uci(struct jsonapp_parse_ctx *jctx)
         return;
 }
 
-static struct jsonapp_parse_ctx *wlan_init_context(struct jsonapp_parse_ctx *jctx)
+static struct jsonapp_parse_ctx *wireless_init_context(struct jsonapp_parse_ctx *jctx)
 {
         int has_config;
 
@@ -57,14 +56,13 @@ static struct jsonapp_parse_ctx *wlan_init_context(struct jsonapp_parse_ctx *jct
 }
 
 static struct jsonapp_parse_backend wlan_parse_backend = {
-        .init = wlan_init_context,
+        .init = wireless_init_context,
         .jsonapp_process_json = NULL,
         .free_jsonapp_context = NULL,
 };
 
 static void __jsonapp_init__ wlan_engine_init(void)
 {
-        printf("wlan_engine\n");
         jsonapp_register_backend(&wlan_parse_backend);
 }
 
