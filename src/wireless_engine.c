@@ -85,7 +85,6 @@ static void wireless_new_iface(struct jsonapp_parse_ctx *jctx,
         return;
 }
 
-
 static void wireless_create_new_iface_section(struct jsonapp_parse_ctx *jctx, 
                                               struct json_object *wlan_obj,
                                               char *device)
