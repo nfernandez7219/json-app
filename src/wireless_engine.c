@@ -65,18 +65,22 @@ static void wireless_exit_context(struct jsonapp_parse_ctx *jctx)
 
 static void wireless_new_iface(struct jsonapp_parse_ctx *jctx, 
                                struct json_object *wlan_obj,
+                               bool five_ghz,
                                struct uci_section **section)
 {
         struct json_object *obj;
         struct uci_ptr sptr;
         struct uci_ptr ptr;
         char tuple[128];
+        char radio_name[64];
         
         memset(&sptr, 0, sizeof(sptr));
         obj = jsonapp_object_get_object_by_name(wlan_obj, "wlanName", json_type_string);
         sptr.package = wireless_package->e.name;
         sptr.value = "wifi-iface";
-        sptr.section = json_object_get_string(obj);
+
+        sprintf(radio_name, "%s%s", json_object_get_string(obj), five_ghz ? "5GHz": "2_4GHz");
+        sptr.section = radio_name;
         uci_set(jctx->uci_ctx, &sptr);
         uci_save(jctx->uci_ctx, wireless_package);
         sprintf(tuple, "%s.%s", sptr.package, sptr.section);
@@ -85,26 +89,50 @@ static void wireless_new_iface(struct jsonapp_parse_ctx *jctx,
         return;
 }
 
+static void wireless_set_ssid(struct jsonapp_parse_ctx *jctx,
+                              struct json_object *wlan_obj,
+                              struct uci_section *section,
+                              bool five_ghz)
+{
+        struct uci_ptr optr;
+        struct json_object *member_obj;
+        char ssid[64];
+
+        memset(&optr, 0, sizeof(optr));
+        optr.package = wireless_package->e.name;
+        optr.section = section->e.name;
+        optr.option = "ssid";
+        member_obj = jsonapp_object_get_object_by_name(wlan_obj, "ssidName", json_type_string);
+        sprintf(ssid, "%s%s", json_object_get_string(member_obj),
+                five_ghz ? "5GHz" : "2_4GHz");
+        optr.value = ssid;
+        uci_set(jctx->uci_ctx, &optr);
+}
+
 static void wireless_create_new_iface_section(struct jsonapp_parse_ctx *jctx, 
                                               struct json_object *wlan_obj,
-                                              char *device)
+                                              bool five_ghz)
 {
         struct json_object *obj;
         struct uci_section *s;
 
-        wireless_new_iface(jctx, wlan_obj, &s);
+        wireless_new_iface(jctx, wlan_obj, five_ghz, &s);
 
         jsonapp_set_new_option(jctx, wlan_obj, "device", 0,
-                               wireless_package, s, "device", device);
-        jsonapp_set_new_option(jctx, wlan_obj, "ssidName", json_type_string, 
-                               wireless_package, s, "ssid", NULL);
+                               wireless_package, s, "device", 
+                               five_ghz ? "radio1" : "radio0");
+
+        wireless_set_ssid(jctx, wlan_obj, s, five_ghz);
+
+       // jsonapp_set_new_option(jctx, wlan_obj, "ssidName", json_type_string, 
+       //                        wireless_package, s, "ssid", NULL);
         
         /* status is handled a bit differently */
         obj = jsonapp_object_get_object_by_name(wlan_obj, "status", json_type_string);
         char *disabled = json_object_get_string(obj) ? "0" : "1";
-        jsonapp_set_new_option(jctx, wlan_obj, "ssidName", 0, 
+        jsonapp_set_new_option(jctx, wlan_obj, "status", 0, 
                                wireless_package, s, "disabled", disabled);
-        jsonapp_set_new_option(jctx, wlan_obj, "ssidName", json_type_string,
+        jsonapp_set_new_option(jctx, wlan_obj, "security", json_type_string,
                                wireless_package, s, "encryption", NULL);
         jsonapp_set_new_option(jctx, wlan_obj, "passphrase", json_type_string, 
                                wireless_package, s, "key", NULL);
@@ -123,12 +151,12 @@ static void wireless_process_wlan_obj (struct jsonapp_parse_ctx *jctx,
         
         obj = jsonapp_object_get_object_by_name(wlan_obj, "radios", json_type_string);
         radio_str = json_object_get_string(obj);
-        create_radio0 = strstr(radio_str, "2.4 GHz") ? 1 : 0;
+        create_radio0 = strstr(radio_str, "2.5 GHz") ? 1 : 0;
         create_radio1 = strstr(radio_str, "5 GHz") ? 1 : 0;
         if (create_radio0)
-                wireless_create_new_iface_section(jctx, wlan_obj, "radio0");
+                wireless_create_new_iface_section(jctx, wlan_obj, false);
         if (create_radio1)
-                wireless_create_new_iface_section(jctx, wlan_obj, "radio1");
+                wireless_create_new_iface_section(jctx, wlan_obj, true);
         return;
 }
 
