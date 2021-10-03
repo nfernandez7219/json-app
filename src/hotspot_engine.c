@@ -31,7 +31,7 @@ static struct jsonapp_parse_ctx *hotspot_init_context(struct jsonapp_parse_ctx *
 
 static struct jsonapp_parse_backend hotspot_parse_backend = {
         .init = hotspot_init_context,
-        .jsonapp_process_json = NULL,
+        .process_json = NULL,
         .free_jsonapp_context = NULL,
 };
 

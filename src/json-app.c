@@ -37,12 +37,18 @@ void jsonapp_register_backend(struct jsonapp_parse_backend *backend)
 
 static void free_jsonapp_context(struct jsonapp_parse_ctx *jctx)
 {
+
         return;
 }
 
 static int jsonapp_process_json(struct jsonapp_parse_ctx *jctx)
 {
-        return 0;
+        if (jctx && jctx->backend->process_json) {
+                jctx->backend->process_json(jctx);
+                return 0;
+        }
+        jsonapp_die("cannot process json file");
+        return -1;
 }
 
 int jsonapp_has_config(struct jsonapp_parse_ctx *jctx, char *name, 
@@ -106,7 +112,64 @@ static struct jsonapp_parse_ctx
                 jsonapp_die("insufficient memory for uci context");
         }
 
+        jctx->backend = backend;
         return backend->init(jctx);
+}
+
+struct json_object *jsonapp_object_get_object_by_name(struct json_object *parent, char *name,
+                                                      enum json_type expected_json_type)
+{
+        struct json_object *obj;
+        obj = json_object_object_get(parent, name);
+        if (json_object_get_type(obj) != expected_json_type) {
+                jsonapp_die("%s formatting error.");
+        }
+        return obj;
+}
+
+void jsonapp_process_array(struct jsonapp_parse_ctx *jctx,
+                           struct json_object *obj_arr,
+                           void *user_data,
+                           void (*process_member)(struct jsonapp_parse_ctx *jctx,
+                                                  struct json_object *obj,
+                                                  void *user_data))
+{
+        int i;
+        int n;
+
+        n = json_object_array_length(obj_arr);
+        for (i=0; i<n; i++) {
+                struct json_object *member_obj = json_object_array_get_idx(obj_arr, i);
+                if (!process_member)
+                        jsonapp_die("no processor for member defined");
+                process_member(jctx, member_obj, user_data);
+        }
+        return;
+}
+
+void jsonapp_set_new_option(struct jsonapp_parse_ctx *jctx,
+                            struct json_object *obj,
+                            char *obj_member,
+                            enum json_type expected_type,
+                            struct uci_package *pkg, 
+                            struct uci_section *section,
+                            char *option, char *value)
+{
+        struct uci_ptr optr;
+        struct json_object *member_obj;
+
+        memset(&optr, 0, sizeof(optr));
+        optr.package = pkg->e.name;
+        optr.section = section->e.name;
+        optr.option = option;
+        if (value) {
+                optr.value = value;
+        } else {
+                member_obj = jsonapp_object_get_object_by_name(obj, obj_member, expected_type);
+                optr.value = json_object_get_string(member_obj);
+        }
+        uci_set(jctx->uci_ctx, &optr);
+        return;
 }
 
 int main(int argc, char **argv)
