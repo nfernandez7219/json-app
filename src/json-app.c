@@ -4,6 +4,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <mosquitto.h>
+#include <unistd.h>
+#include <dirent.h>
 #include "json-app.h"
 
 static struct jsonapp_parse_backend *backend_list;
@@ -182,10 +185,89 @@ void jsonapp_set_new_option(struct jsonapp_parse_ctx *jctx,
         return;
 }
 
+static void read_iface_mac(char *filepath, uint8_t *mac)
+{
+        char address_path[128];
+        char mac_str[32];
+        FILE *f;
+        char *eptr;
+        char *sptr;
+        int i;
+
+        sprintf(address_path, "%s/address", filepath);
+        if (!(f = fopen(address_path, "r"))) {
+                jsonapp_die("sysdir error");
+        }
+        fread(mac_str, 1, sizeof mac_str, f);
+        sptr = mac_str;
+        for (i=0; i<6; i++) {
+                mac[i] = strtol(sptr, &eptr, 16) & 0xff;
+                sptr = eptr + 1;
+        }
+        fclose(f);
+        return;
+}
+
+static int jsonapp_get_mac(char *iface, uint8_t *mac)
+{
+        DIR *net_sysdir;
+        struct dirent *file_entry;
+        static const char sysdir[] = "/sys/class/net/";
+        int not_found = -1;
+        char filepath[64];
+        
+        /* search for iface in /sys/class/net/ if it exists. */
+        net_sysdir = opendir(sysdir);
+        if (!net_sysdir) {
+                /* this is considered a gross error as every linux system
+                 * should have /sys/ directory at least */
+                jsonapp_die("cannot open /sys/class/net/ directory");
+        }
+
+        while ((file_entry = readdir(net_sysdir))) {
+                if (strcmp(iface, file_entry->d_name) == 0) {
+                        sprintf(filepath, "%s%s", sysdir, iface);
+                        read_iface_mac(filepath, mac);
+                        not_found = 0;
+                        break;
+                }
+        }
+
+        closedir(net_sysdir);
+        return not_found;
+}
+
 int main(int argc, char **argv)
 {
         struct jsonapp_parse_backend *backend;
         struct jsonapp_parse_ctx *jctx;
+        int option;
+        char *iface_name = NULL;
+        uint8_t mac_address[6];
+
+        while((option = getopt(argc, argv, "n:")) != -1) {
+                switch(option) {
+                case 'n':
+                        iface_name = optarg;
+                        break;
+                case '?':
+                        if (optopt == 'n') {
+                                jsonapp_die("-n expects a network interface name.");
+                        } else {
+                                jsonapp_die("encountered illegal option");
+                        }
+                }
+        }
+
+        if (!iface_name) {
+                jsonapp_die("please give the net interface name to get the MAC address");
+        }
+
+        if (jsonapp_get_mac(iface_name, mac_address)) {
+                jsonapp_die("unable to get MAC address of %s\n", iface_name);
+        }
+
+        return 0;
         foreach_parse_backend(backend, backend_list) {
                 jctx = alloc_jsonapp_context_from_file(backend, argv[1]);
                 jsonapp_process_json(jctx);
