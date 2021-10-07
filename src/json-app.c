@@ -1,10 +1,10 @@
+#include <mosquitto.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <mosquitto.h>
 #include <unistd.h>
 #include <dirent.h>
 #include "json-app.h"
@@ -237,18 +237,55 @@ static int jsonapp_get_mac(char *iface, uint8_t *mac)
         return not_found;
 }
 
+static void jsonapp_get_topic(struct jsonapp_mqtt_ctx *mctx, char *topic, int len)
+{
+        uint8_t *ptr = mctx->mac_address;
+        snprintf(topic, len, "/adopt/device/%.2x%.2x%.2x%.2x%.2x%.2x",
+                 ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5]);
+        return;
+}
+
+static void jsonapp_generate_new_client_id(char *client_id, int len)
+{
+        pid_t pid = getpid();
+        snprintf(client_id, len, "jsonapp%u",pid);
+        return;
+}
+
+static void jsonapp_mqtt_subscribe_cb(struct mosquitto *mosq,
+                                      void *arg, int msg_id, int qos_count,
+                                      const int *granted_qos)
+{
+        struct jsonapp_mqtt_ctx *mctx = arg;
+        char mqtt_topic[256];
+        jsonapp_get_topic(mctx, mqtt_topic, sizeof mqtt_topic);
+        printf("subscribed to topic: %s\n", mqtt_topic);
+        return;
+}
+
+static void jsonapp_mqtt_connect_cb(struct mosquitto *mosq, void *arg, int rc)
+{
+        if (rc != 0) {
+                jsonapp_die("failed to connect to mqtt server");
+        }
+        printf("connected to mqtt server!\n");
+
+        return;
+}
+
+
 int main(int argc, char **argv)
 {
         struct jsonapp_parse_backend *backend;
         struct jsonapp_parse_ctx *jctx;
         int option;
-        char *iface_name = NULL;
-        uint8_t mac_address[6];
+        struct jsonapp_mqtt_ctx mqtt_ctx = {0};
+        char mqtt_topic[256];
 
         while((option = getopt(argc, argv, "n:")) != -1) {
                 switch(option) {
                 case 'n':
-                        iface_name = optarg;
+                        mqtt_ctx.iface_name = optarg;
                         break;
                 case '?':
                         if (optopt == 'n') {
@@ -259,14 +296,32 @@ int main(int argc, char **argv)
                 }
         }
 
-        if (!iface_name) {
+        if (!mqtt_ctx.iface_name) {
                 jsonapp_die("please give the net interface name to get the MAC address");
         }
 
-        if (jsonapp_get_mac(iface_name, mac_address)) {
-                jsonapp_die("unable to get MAC address of %s\n", iface_name);
+        if (jsonapp_get_mac(mqtt_ctx.iface_name, mqtt_ctx.mac_address)) {
+                jsonapp_die("unable to get MAC address of %s\n", mqtt_ctx.iface_name);
         }
 
+        mosquitto_lib_init();
+        jsonapp_generate_new_client_id(mqtt_ctx.jsonapp_client_id, sizeof(mqtt_ctx.jsonapp_client_id));
+        mqtt_ctx.mosq = mosquitto_new(mqtt_ctx.jsonapp_client_id, true, &mqtt_ctx);
+        mosquitto_username_pw_set(mqtt_ctx.mosq, "guest", "guest");
+        mosquitto_connect_callback_set(mqtt_ctx.mosq, jsonapp_mqtt_connect_cb);
+        mosquitto_subscribe_callback_set(mqtt_ctx.mosq, jsonapp_mqtt_subscribe_cb);
+        int err = mosquitto_connect(mqtt_ctx.mosq, "localhost", 1883, 60);
+        if (err != MOSQ_ERR_SUCCESS) {
+                fprintf(stderr, "error connecting to mqtt server!");
+        }
+        jsonapp_get_topic(&mqtt_ctx, mqtt_topic, sizeof mqtt_topic);
+        mosquitto_subscribe(mqtt_ctx.mosq, NULL, mqtt_topic, 0);
+
+
+        int loop = mosquitto_loop_start(mqtt_ctx.mosq);
+        if (loop != MOSQ_ERR_SUCCESS) {
+                jsonapp_die("cannot start mqtt main loop");
+        }
         return 0;
         foreach_parse_backend(backend, backend_list) {
                 jctx = alloc_jsonapp_context_from_file(backend, argv[1]);

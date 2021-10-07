@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <json-c/json.h>
 #include <uci.h>
+#include <mosquitto.h>
 
 #define __jsonapp_init__\
         __attribute__((constructor))
@@ -15,6 +16,13 @@ struct jsonapp_parse_backend {
         struct jsonapp_parse_ctx *(*init)(struct jsonapp_parse_ctx *jctx);
         int (*process_json)(struct jsonapp_parse_ctx *jctx);
         void (*exit)(struct jsonapp_parse_ctx *jctx);
+};
+
+struct jsonapp_mqtt_ctx {
+        char *iface_name;
+        uint8_t mac_address[6];
+        struct mosquitto *mosq;
+        char jsonapp_client_id[64];
 };
 
 struct jsonapp_parse_ctx {
