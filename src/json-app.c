@@ -240,7 +240,7 @@ static int jsonapp_get_mac(char *iface, uint8_t *mac)
 static void jsonapp_get_topic(struct jsonapp_mqtt_ctx *mctx, char *topic, int len)
 {
         uint8_t *ptr = mctx->mac_address;
-        snprintf(topic, len, "/adopt/device/%.2x%.2x%.2x%.2x%.2x%.2x",
+        snprintf(topic, len, "adopt/device/%.2x%.2x%.2x%.2x%.2x%.2x",
                  ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5]);
         return;
 }
@@ -273,6 +273,12 @@ static void jsonapp_mqtt_connect_cb(struct mosquitto *mosq, void *arg, int rc)
         return;
 }
 
+static void jsonapp_mqtt_msg_cb(struct mosquitto *mosq, void *arg,
+                                const struct mosquitto_message *msg)
+{
+        printf("message: %s\n", (char *)msg->payload);
+        return;
+}
 
 int main(int argc, char **argv)
 {
@@ -310,18 +316,15 @@ int main(int argc, char **argv)
         mosquitto_username_pw_set(mqtt_ctx.mosq, "guest", "guest");
         mosquitto_connect_callback_set(mqtt_ctx.mosq, jsonapp_mqtt_connect_cb);
         mosquitto_subscribe_callback_set(mqtt_ctx.mosq, jsonapp_mqtt_subscribe_cb);
+        mosquitto_message_callback_set(mqtt_ctx.mosq, jsonapp_mqtt_msg_cb);
         int err = mosquitto_connect(mqtt_ctx.mosq, "localhost", 1883, 60);
         if (err != MOSQ_ERR_SUCCESS) {
                 fprintf(stderr, "error connecting to mqtt server!");
         }
         jsonapp_get_topic(&mqtt_ctx, mqtt_topic, sizeof mqtt_topic);
         mosquitto_subscribe(mqtt_ctx.mosq, NULL, mqtt_topic, 0);
-
-
-        int loop = mosquitto_loop_start(mqtt_ctx.mosq);
-        if (loop != MOSQ_ERR_SUCCESS) {
-                jsonapp_die("cannot start mqtt main loop");
-        }
+        mosquitto_loop_forever(mqtt_ctx.mosq, -1,1);
+        mosquitto_lib_cleanup();
         return 0;
         foreach_parse_backend(backend, backend_list) {
                 jctx = alloc_jsonapp_context_from_file(backend, argv[1]);
