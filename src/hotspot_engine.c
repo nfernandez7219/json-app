@@ -95,10 +95,10 @@ static void hotspot_process_wlangrp_obj(struct jsonapp_parse_ctx *jctx,
         return;
 }
 
-static int hotspot_process_json(struct jsonapp_parse_ctx *jctx)
+static int hotspot_process_json(struct jsonapp_parse_ctx *jctx, struct json_object *root)
 {
         struct json_object *wlan_grp_obj;
-        wlan_grp_obj = jsonapp_object_get_object_by_name(jctx->root, "WlanGroupList", json_type_array);
+        wlan_grp_obj = jsonapp_object_get_object_by_name(root, "WlanGroupList", json_type_array);
         jsonapp_process_array(jctx, wlan_grp_obj, NULL, hotspot_process_wlangrp_obj);
         uci_commit(jctx->uci_ctx, &hotspot_package, true);
         return 0;
@@ -106,8 +106,7 @@ static int hotspot_process_json(struct jsonapp_parse_ctx *jctx)
 
 static void hotspot_exit_context(struct jsonapp_parse_ctx *jctx)
 {
-        /* we did not do any specific allocation in hotspot_init_context()
-         * so no need to do cleanup here. just return immediately. */
+        uci_unload(jctx->uci_ctx, hotspot_package);
         return;
 }
 
