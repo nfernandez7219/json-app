@@ -304,6 +304,7 @@ void jsonapp_process_array(struct jsonapp_parse_ctx *jctx,
         return;
 }
 
+
 void jsonapp_set_new_option(struct jsonapp_parse_ctx *jctx,
                             struct json_object *obj,
                             char *obj_member,

@@ -9,9 +9,9 @@ struct uci_package *hotspot_package;
 /* truncate the entire /etc/config/hotspot file */
 static void reset_hotspot_uci(struct jsonapp_parse_ctx *jctx)
 {
-        if (truncate("/etc/config/hotspot", 0) == -1) {
-                jsonapp_die("unable to reset /etc/config/hotspot");
-        }
+        //if (truncate("/etc/config/hotspot", 0) == -1) {
+        //        jsonapp_die("unable to reset /etc/config/hotspot");
+        //}
 
         if (uci_load(jctx->uci_ctx, "hotspot", &hotspot_package) != UCI_OK) {
                 jsonapp_die("error loading /etc/config/hotspot");
@@ -37,6 +37,23 @@ static struct jsonapp_parse_ctx *hotspot_init_context(struct jsonapp_parse_ctx *
         return jctx;
 }
 
+void hotspot_set_option(struct jsonapp_parse_ctx *jctx,
+                        struct json_object *obj,
+                        char *obj_member,
+                        char *option_name,
+                        enum json_type expected_type)
+{
+        char tuple[512];
+        struct json_object *member;
+        struct uci_ptr ptr;
+        member = jsonapp_object_get_object_by_name(obj, obj_member, expected_type);
+        sprintf(tuple, "hotspot.@wifi[0].%s=%s", option_name,
+                       json_object_get_string(member));
+        uci_lookup_ptr(jctx->uci_ctx, &ptr, tuple, true);
+        uci_set(jctx->uci_ctx, &ptr);
+        return;
+}
+
 static void hotspot_process_wlangrp_obj(struct jsonapp_parse_ctx *jctx, 
                                          struct json_object *wg_obj,
                                          void *user_data)
@@ -59,38 +76,20 @@ static void hotspot_process_wlangrp_obj(struct jsonapp_parse_ctx *jctx,
         rserver1 = json_object_array_get_idx(rservers, 0);
         rserver2 = json_object_array_get_idx(rservers, 1);
 
-        struct uci_section *s = NULL;
-        char tuple[128];
-        struct uci_ptr ptr;
-        struct json_object *obj;
-
-        uci_add_section(jctx->uci_ctx, hotspot_package, "wifi", &s);
-        uci_save(jctx->uci_ctx, hotspot_package);
-
-        sprintf(tuple, "%s.%s", hotspot_package->e.name, s->e.name);
-        uci_lookup_ptr(jctx->uci_ctx, &ptr, tuple, true);
-
         servers = jsonapp_object_get_object_by_name(rserver1, "servers", json_type_array);
         server = json_object_array_get_idx(servers, 0);
-        jsonapp_set_new_option(jctx, server, "ip", json_type_string,
-                               hotspot_package, s, "HS_RADIUS", NULL);
-        jsonapp_set_new_option(jctx, server, "secret", json_type_string,
-                               hotspot_package, s, "HS_RADSECRET", NULL);       
-        jsonapp_set_new_option(jctx, server, "ip", json_type_string,
-                               hotspot_package, s, "HS_UAMALLOW", NULL);
-        jsonapp_set_new_option(jctx, server, "port", json_type_string,
-                               hotspot_package, s, "HS_PORT", NULL);  
+        hotspot_set_option(jctx, server, "ip", "HS_RADIUS", json_type_string);
+        hotspot_set_option(jctx, server, "secret", "HS_RADSECRET", json_type_string);
+        hotspot_set_option(jctx, server, "ip", "HS_UAMALLOW", json_type_string);
+        hotspot_set_option(jctx, server, "port", "HS_PORT", json_type_string);
 
         servers = jsonapp_object_get_object_by_name(rserver2, "servers", json_type_array);       
         server = json_object_array_get_idx(servers, 0);
-        jsonapp_set_new_option(jctx, server, "ip", json_type_string,
-                               hotspot_package, s, "HS_RADIUS2", NULL);  
+        hotspot_set_option(jctx, server, "ip", "HS_RADIUS2", json_type_string);
 
         galist = jsonapp_object_get_object_by_name(one_wlan, "GuestAccessList", json_type_array);
         one_ga = json_object_array_get_idx(galist, 0);
-        jsonapp_set_new_option(jctx, one_ga, "portalUrl", json_type_string,
-                               hotspot_package, s, "HS_UAMHOMEPAGE", NULL);  
-
+        hotspot_set_option(jctx, one_ga, "portalUrl", "HS_UAMHOMEPAGE", json_type_string);
         uci_save(jctx->uci_ctx, hotspot_package);
         return;
 }
