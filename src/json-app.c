@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <signal.h>
 #include "json-app.h"
 
 static struct jsonapp_parse_backend *backend_list;
@@ -372,12 +373,28 @@ void jsonapp_set_new_option(struct jsonapp_parse_ctx *jctx,
         return;
 }
 
+/* potentially non-async-signal safe procedure since functions called here 
+ * _might_ use function like printf(), fprintf(), etc */
+struct jsonapp_parse_ctx *jctx = NULL;
+static void signal_handler(int sig)
+{
+        char topic[256];
+        if (jctx) {
+                jsonapp_get_topic(&jctx->mqtt, topic, sizeof topic);
+                mosquitto_unsubscribe(jctx->mqtt.mosq, NULL, topic);
+                mosquitto_disconnect(jctx->mqtt.mosq);
+        }
+        exit(-1);
+        return;
+}
+
 int main(int argc, char **argv)
 {
-
-        struct jsonapp_parse_ctx *jctx;
-
         jctx = jsonapp_alloc_context(argc, argv);
+
+        if (signal(SIGINT, signal_handler) == SIG_ERR) {
+                jsonapp_die("jsonapp error trapping SIGINT");
+        }
         mosquitto_loop_forever(jctx->mqtt.mosq, -1, 1);
         jsonapp_free_context(jctx);
         return 0;
