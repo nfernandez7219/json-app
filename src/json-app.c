@@ -206,6 +206,15 @@ static void jsonapp_mqtt_msg_cb(struct mosquitto *mosq, void *arg,
         return;
 }
 
+static void jsonapp_print_mqtt_settings(struct jsonapp_mqtt_ctx *mqtt)
+{
+        fprintf(stderr, "network interface: %s\n", mqtt->iface_name);
+        fprintf(stderr, "mqtt username: %s\n", mqtt->user);
+        fprintf(stderr, "mqtt pssword: %s\n", mqtt->password);
+        fprintf(stderr, "mqtt server host/ip address: %s\n", mqtt->host);
+        return;
+}
+
 static void jsonapp_init_mqtt(struct jsonapp_parse_ctx *jctx)
 {
         struct jsonapp_mqtt_ctx *mqtt;
@@ -216,17 +225,20 @@ static void jsonapp_init_mqtt(struct jsonapp_parse_ctx *jctx)
                 jsonapp_die("please give the net interface name to get the MAC address");
         }
 
+        jsonapp_print_mqtt_settings(mqtt);
+
         if (jsonapp_get_mac(mqtt->iface_name, mqtt->mac_address)) {
                 jsonapp_die("unable to get MAC address of %s\n", mqtt->iface_name);
         }
+
         mosquitto_lib_init();
         jsonapp_generate_new_client_id(mqtt->jsonapp_client_id, sizeof(mqtt->jsonapp_client_id));
         mqtt->mosq = mosquitto_new(mqtt->jsonapp_client_id, true, jctx);
-        mosquitto_username_pw_set(mqtt->mosq, "guest", "guest");
+        mosquitto_username_pw_set(mqtt->mosq, mqtt->user, mqtt->password);
         mosquitto_connect_callback_set(mqtt->mosq, jsonapp_mqtt_connect_cb);
         mosquitto_subscribe_callback_set(mqtt->mosq, jsonapp_mqtt_subscribe_cb);
         mosquitto_message_callback_set(mqtt->mosq, jsonapp_mqtt_msg_cb);
-        int err = mosquitto_connect(mqtt->mosq, "localhost", 1883, 60);
+        int err = mosquitto_connect(mqtt->mosq, mqtt->host, 1883, 60);
         if (err != MOSQ_ERR_SUCCESS) {
                 fprintf(stderr, "error connecting to mqtt server!");
         }
@@ -236,6 +248,13 @@ static void jsonapp_init_mqtt(struct jsonapp_parse_ctx *jctx)
         return;
 }
 
+static void jsonapp_init_mqtt_defaults(struct jsonapp_mqtt_ctx *mqtt)
+{
+        mqtt->user = "guest";
+        mqtt->password = "guest";
+        mqtt->host = "localhost";
+        return;
+}
 
 static struct jsonapp_parse_ctx 
 *alloc_jsonapp_context(int argc, char **argv)
@@ -252,14 +271,22 @@ static struct jsonapp_parse_ctx
         }
         memset(jctx, 0, sizeof *jctx);
         mqtt = &jctx->mqtt;
-        while((option = getopt(argc, argv, "n:")) != -1) {
+        jsonapp_init_mqtt_defaults(mqtt);
+        while((option = getopt(argc, argv, "n:u:p:h:")) != -1) {
                 switch(option) {
-                case 'n':
-                        mqtt->iface_name = optarg;
-                        break;
+                case 'n': mqtt->iface_name = optarg; break;
+                case 'u': mqtt->user = optarg; break;
+                case 'p': mqtt->password = optarg; break;
+                case 'h': mqtt->host = optarg; break;
                 case '?':
                         if (optopt == 'n') {
                                 jsonapp_die("-n expects a network interface name.");
+                        } else if (optopt == 'u') {
+                                fprintf(stderr, "-u expects a username. if not used, \"guest\" is used.");
+                        } else if (optopt == 'p') {
+                                fprintf(stderr, "-p expects a password. if not used, \"guest\" is used.");
+                        } else if (optopt == 'h') {
+                                fprintf(stderr, "-h expects a hotname or IP address. if not used, \"localhost\" is used.");
                         } else {
                                 jsonapp_die("encountered illegal option");
                         }
@@ -339,7 +366,6 @@ int main(int argc, char **argv)
         mosquitto_loop_forever(jctx->mqtt.mosq, -1, 1);
         //free_jsonapp_context(jctx);
         //printf("exiting...");
-
 
         return 0;
 }

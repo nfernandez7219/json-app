@@ -21,6 +21,9 @@ struct jsonapp_parse_backend {
 
 struct jsonapp_mqtt_ctx {
         char *iface_name;
+        char *user;
+        char *password;
+        char *host;
         uint8_t mac_address[6];
         struct mosquitto *mosq;
         char jsonapp_client_id[64];
