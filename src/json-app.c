@@ -256,8 +256,15 @@ static void jsonapp_init_mqtt_defaults(struct jsonapp_mqtt_ctx *mqtt)
         return;
 }
 
+static void jsonapp_exit_mqtt(struct jsonapp_parse_ctx *jctx)
+{
+        mosquitto_destroy(jctx->mqtt.mosq);
+        mosquitto_lib_cleanup();
+        return;
+}
+
 static struct jsonapp_parse_ctx 
-*alloc_jsonapp_context(int argc, char **argv)
+*jsonapp_alloc_context(int argc, char **argv)
 {
         static struct jsonapp_parse_ctx *jctx = NULL;
         struct jsonapp_mqtt_ctx *mqtt;
@@ -298,6 +305,14 @@ static struct jsonapp_parse_ctx
                 jsonapp_die("insufficient memory for uci context");
         }
         return jctx;
+}
+
+static void jsonapp_free_context(struct jsonapp_parse_ctx *jctx)
+{
+        uci_free_context(jctx->uci_ctx);
+        jsonapp_exit_mqtt(jctx);
+        free(jctx);
+        return;
 }
 
 struct json_object *jsonapp_object_get_object_by_name(struct json_object *parent, char *name,
@@ -362,11 +377,9 @@ int main(int argc, char **argv)
 
         struct jsonapp_parse_ctx *jctx;
 
-        jctx = alloc_jsonapp_context(argc, argv);
+        jctx = jsonapp_alloc_context(argc, argv);
         mosquitto_loop_forever(jctx->mqtt.mosq, -1, 1);
-        //free_jsonapp_context(jctx);
-        //printf("exiting...");
-
+        jsonapp_free_context(jctx);
         return 0;
 }
 
