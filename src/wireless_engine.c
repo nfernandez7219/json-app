@@ -138,8 +138,10 @@ static void wireless_create_new_iface_section(struct jsonapp_parse_ctx *jctx,
         char *disabled = json_object_get_string(obj) ? "0" : "1";
         jsonapp_set_new_option(jctx, wlan_obj, "status", 0, 
                                wireless_package, s, "disabled", disabled);
+        //jsonapp_set_new_option(jctx, wlan_obj, "security", json_type_string,
+        //                       wireless_package, s, "encryption", NULL);
         jsonapp_set_new_option(jctx, wlan_obj, "security", json_type_string,
-                               wireless_package, s, "encryption", NULL);
+                               wireless_package, s, "encryption", "none");
         jsonapp_set_new_option(jctx, wlan_obj, "passphrase", json_type_string, 
                                wireless_package, s, "key", NULL);
         uci_save(jctx->uci_ctx, wireless_package);
