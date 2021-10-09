@@ -322,7 +322,7 @@ struct json_object *jsonapp_object_get_object_by_name(struct json_object *parent
         struct json_object *obj;
         obj = json_object_object_get(parent, name);
         if (json_object_get_type(obj) != expected_json_type) {
-                jsonapp_die("%s formatting error.");
+                jsonapp_die("%s formatting error.", name);
         }
         return obj;
 }
@@ -386,6 +386,31 @@ static void signal_handler(int sig)
         }
         exit(-1);
         return;
+}
+
+struct json_object *jsonapp_get_wlangrp(struct json_object *root)
+{
+        return jsonapp_object_get_object_by_name(root, "WlanGroup", json_type_object);
+}
+
+struct json_object *jsonapp_get_wlans(struct json_object *wlangrp)
+{
+         return jsonapp_object_get_object_by_name(wlangrp, "wlans", json_type_array);       
+}
+
+struct json_object *jsonapp_get_radius_servers(struct json_object *wlans)
+{
+        return jsonapp_object_get_object_by_name(wlans, "radiusServerList", json_type_array);
+}
+
+struct json_object *jsonapp_get_servers(struct json_object *radius_server)
+{
+        return jsonapp_object_get_object_by_name(radius_server, "servers", json_type_array);
+}
+
+struct json_object *jsonapp_get_guest_acl_list(struct json_object *wlans)
+{
+        return jsonapp_object_get_object_by_name(wlans, "guestAccessList", json_type_array);
 }
 
 int main(int argc, char **argv)

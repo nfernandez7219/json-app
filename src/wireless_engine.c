@@ -123,9 +123,6 @@ static void wireless_create_new_iface_section(struct jsonapp_parse_ctx *jctx,
 
         wireless_set_ssid(jctx, wlan_obj, s, five_ghz);
 
-       // jsonapp_set_new_option(jctx, wlan_obj, "ssidName", json_type_string, 
-       //                        wireless_package, s, "ssid", NULL);
-        
         /* status is handled a bit differently */
         obj = jsonapp_object_get_object_by_name(wlan_obj, "status", json_type_string);
         char *disabled = json_object_get_string(obj) ? "0" : "1";
@@ -159,23 +156,12 @@ static void wireless_process_wlan_obj (struct jsonapp_parse_ctx *jctx,
         return;
 }
 
-/* get the object array for the wlans member and process them. */
-static void wireless_process_wlangrp_obj(struct jsonapp_parse_ctx *jctx, 
-                                         struct json_object *wg_obj,
-                                         void *user_data)
-{
-        struct json_object *wlans_obj;
-        wlans_obj = jsonapp_object_get_object_by_name(wg_obj, "wlans", json_type_array);
-        jsonapp_process_array(jctx, wlans_obj, NULL, wireless_process_wlan_obj);
-        return;
-}
-
 static int wireless_process_json(struct jsonapp_parse_ctx *jctx, struct json_object *root)
 {
-        struct json_object *wlan_grp_obj;
-        wlan_grp_obj = jsonapp_object_get_object_by_name(root, "WlanGroupList", json_type_array);
-        jsonapp_process_array(jctx, wlan_grp_obj, NULL, wireless_process_wlangrp_obj);
-        uci_commit(jctx->uci_ctx, &wireless_package, true);
+        struct json_object *obj;
+        obj = jsonapp_get_wlans(jsonapp_get_wlangrp(root));
+        jsonapp_process_array(jctx, obj, NULL, wireless_process_wlan_obj);
+        uci_commit(jctx->uci_ctx, &wireless_package, true);       
         return 0;
 }
 

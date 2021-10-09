@@ -60,6 +60,12 @@ void jsonapp_set_new_option(struct jsonapp_parse_ctx *jctx,
                             struct uci_section *section,
                             char *option, char *value);
 
+struct json_object *jsonapp_get_wlangrp(struct json_object *root);
+struct json_object *jsonapp_get_wlans(struct json_object *wlangrp);
+struct json_object *jsonapp_get_radius_servers(struct json_object *wlans);
+struct json_object *jsonapp_get_guest_acl_list(struct json_object *wlans);
+struct json_object *jsonapp_get_servers(struct json_object *radius_server);
+
 #define foreach_parse_backend(_backend, _backend_list) \
         for ((_backend) = (_backend_list); _backend; _backend = _backend->next)
 
